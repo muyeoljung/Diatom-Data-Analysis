@@ -1,0 +1,88 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(MASS)
+library(klaR) 
+```
+
+## Setting up
+
+
+```{r}
+set.seed(101) #generate random numbers / set the seed no matter how many times you generate
+sample_n(iris, 10)
+```
+
+
+## Preparing the Data
+
+That is to separate the data into two subsets; a training set and a testing set. We will use the training set to build our predictive model and then we will use our testing set to evaluate the accuracy of that model.
+
+
+
+```{r}
+trainingsample <- sample(c(TRUE, FALSE), nrow(iris), replace=T, prob=c(0.6, 0.4))
+train <- iris[trainingsample,] #60%
+test <- iris[!trainingsample,] #40%
+
+```
+
+
+## Linear Discriminant Analysis
+
+LDA looks for linear combination of the independent variables to best explain the data and predict the different classes. Discriminant scores are calculated for each observation for each class based on these linear combinations
+
+I need to check the equation.
+
+```{r}
+lda.iris <- lda(Species ~., train)
+lda.iris
+```
+
+
+```{r}
+plot(lda.iris, col=as.integer(train$Species))
+
+plot(lda.iris, dimen = 1, type="b")
+```
+
+
+## LDA Partition Plots
+
+Using the partimat function from the klaR Package provides an alternative way to plot the linear discriminant functions. partimat outouts an array of plots for every combination of two variables. This of each plot as a different view of the same data. Coloured regions delineate each classification area. Any observation that falls within a region is predicted to be from a specific class. Each plot also includes the apprent error rate for that view of the data.
+
+
+```{r}
+partimat(Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data=train, method="lda")
+```
+
+
+## LDA Predictions
+
+Next let's evaluate the prediction accuracy of our model. First, we will run the model against the training set used to verify the model fits the data properly by using the command predict. The table output is a confusion matrix with the actual species as the row labels and the predicted species at the column lables.
+
+
+```{r}
+lda.train <- predict(lda.iris)
+
+train$lda <- lda.train$class
+table(train$lda, train$Species)
+
+```
+
+The total number of correctly predicted observations is the sum of the diagonal. (26+25+30) So this model fit the training data correctyl for almost every observation. 
+
+
+```{r}
+lda.test <- predict(lda.iris, test)
+test$lda <- lda.test$class
+table(test$lda, test$Species)
+```
+
+
+Based on the model we created (lda.iris), lda.iris will predict the response variable with an accuracy of 100%.

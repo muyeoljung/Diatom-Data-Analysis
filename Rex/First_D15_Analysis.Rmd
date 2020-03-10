@@ -1,0 +1,173 @@
+---
+title: "Dissimilarity Analysis of First 15 Diatom Samples in Nakdong River, South Korea"
+author: "Muyeol Jung"
+date: "10/03/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(tidyverse)
+```
+
+
+
+
+
+# Introduction
+
+Diatoms have been widely used in water qualty assessment because of their traits of sensitivity to changes in environments and ubiquity in water. Kelly and other researchers have adapted diatom to water quality analysis, however, how replicable diatoms are remain unanswered.
+
+This chapter is to attempt to compare daitom samples taken at the same time from different rock samples and to examine their replicability in random selection. For the research purpose, all 15 rock samples were collected at three major different sites in Nakdong River Dec 2018, encompassing upstream, midstream and downstream.
+
+Methodologically, dissimilarity between samples is calculated and then plotted using non-metric Multidimensional scaling.
+
+
+
+
+# Data Process and Analysis
+
+## Import data set and process
+
+Diatom Counts from 15 rock sample are imported and then processed in an appropriate format of table with observations in rows and species in columns.
+
+```{r echo=T, results='hide'}
+# Import the data set and transpose
+D15.Count <- read.csv("Final_Diatom_List.csv", stringsAsFactors = FALSE) %>% t()
+
+# Convert matrix to dataframe
+D15.Count <- data.frame(data.matrix(D15.Count))
+summary(D15.Count)
+
+# colnames
+D15_colname <- D15.Count[1,]
+D15_colname <- lapply(D15_colname, as.character)
+
+
+D15.Count <- D15.Count[-1,]
+
+## Convert factors to numeric
+index <- sapply(D15.Count, is.factor)
+D15.Count[index] <- lapply(D15.Count[index], function(x) as.numeric(as.character(x)))
+
+colnames(D15.Count) <- D15_colname
+
+D15.Count
+
+### below works
+
+D15.Count1 <- read.csv("Final_Diatom_List.csv") %>% t()
+D15.Count1 <- data.frame(data.matrix(D15.Count1))
+
+a1 <- D15.Count1[1,]
+a1 <- lapply(a1, as.character)
+
+D15.Count1 <- D15.Count1[-1,]
+colnames(D15.Count1) <- a1
+
+D15.Count1
+
+index <- sapply(D15.Count1, is.factor)
+D15.Count1[index] <- lapply(D15.Count1[index], function(x) as.numeric(as.character(x)))
+
+
+```
+
+
+
+
+
+## Import environment data set for the sample
+
+Environmental data for the diatom results are also loaded.
+The data includes Name, Site(Group), and Date and Site will be used here as grouping factor.
+
+Site; A upstream, B midstream, C downstream
+
+```{r echo=T, results='hide'}
+D15.env <- readxl::read_xlsx("Diatom_Env.xlsx")
+str(D15.env)
+
+```
+
+
+
+
+# Results
+
+## Calculate dissimilarities: vegdist (Dissimilarity Indicies for Community Ecologists)
+
+Command "Vegdist" will calculate distances (dissimilarity) between observations (samples).
+The Bray-Curtis distance is used as the Bray-Curtis dissimilarity is one of the most well-known ways of quantifying the difference between samples. (It does not satisfy the triangle inequality axiom, and hence is not a true distance)
+
+Bray-Curtis distance is calculated as follows.
+
+$$d_{j,k}= \sqrt{\frac{\sum _i|x_ij-x_ik|}{\sum _i(x_ij+x_ik)} }$$
+where $x_ij$, $x_ik$ refer to the quantity on species (column) $i$ and site (rows) $j$ and $k$.
+
+Bray-Curtis distance scale (multiply 100) is easy to understand (0 means the samples are exactly the same, while 100 is the maximum difference that can be observed between two samples).
+
+Here, dissimilarities are calculated on raw counts (not relative abundance).
+
+```{r}
+D15.Count.dist <- vegdist(D15.Count, method = "bray")*100
+D15.Count.dist
+# 0: the same, 100: different
+```
+
+
+
+
+
+## Analysis of Similarities(ANOSIM)
+
+ANOSIM provides a way to test statistically whether there is a significant difference between two or more groups of sampling units. It operates directly on a dissimilarity matrix. (uses only the rank order of dissimilarity values)
+
+```{r}
+D15.anosim <- with(D15.env, anosim(D15.Count.dist, Site))
+summary(D15.anosim)
+plot(D15.anosim)
+
+```
+
+
+
+
+## MRPP: Multi Response Permutation Procedure and Mean Dissimilarity Matrix
+
+mrpp for a similar function using original dissimiliarities instead of their ranks.
+
+```{r pressure, echo=FALSE}
+D15.mrpp <- with(D15.env, mrpp(D15.Count, distance = "bray", Site))
+D15.mrpp
+
+D15.mrpp_E <- with(D15.env, mrpp(D15.Count, distance = "euclidean", Site))
+D15.mrpp_E
+
+
+
+## mean distance within/between groups
+D15.meandis <- with(D15.env, meandist(D15.Count.dist, Site))
+D15.meandis
+
+# summary finds the within-class, between-class and overall means of these dissimilarities.
+summary(D15.meandis)
+plot(D15.meandis)
+```
+
+```{r}
+D15.ordination <- metaMDS(D15.Count, distance = "bray", k=2)
+plot(D15.ordination, type="t", display = "sites")
+with(D15.env, ordihull(D15.ordination, Site))
+```
+
+### Conclusion
+
+On Bray-Curtis dissimilarities, fives samples at each site are clustered, whereas far away from samples from other sites.
+
+Samples at site C are more closely clustered followed by site A, site B is the least clustered.

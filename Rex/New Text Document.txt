@@ -1,0 +1,8 @@
+https://jonlefcheck.net/2012/10/24/nmds-tutorial-in-r/
+
+https://sites.google.com/site/mb3gustame/reference/ranked-data
+
+https://mb3is.megx.net/gustame/dissimilarity-based-methods/nmds
+
+Markdown Basics
+https://rmarkdown.rstudio.com/authoring_basics.html

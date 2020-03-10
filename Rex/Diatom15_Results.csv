@@ -1,0 +1,204 @@
+,Species,Syn,A1,A2,A3,A4,A5,B1,B2,B3,B4,B5,C1,C2,C3,C4,C5
+,Achnanthidium atomus,Achnanthes atomus,,,,,,,1,,1,,,,,,
+Y,Achnanthes biasolettiana,,2,2,,1,1,,,,,,,,,,
+Y,Achnanthes biasolettiana var. subatomus,,2,7,1,5,3,,,,,,,,,,
+,Achnanthes conspicua,,,,,1,1,,,4,1,7,,,1,,
+Y,Achnanthes convergens,,38,23,9,40,35,,,,,,1,,,,
+,Achnanthes crassa,,,,,,,,,,,,,,,,
+Y,Achnanthes daui,,,,,,,,,,2,2,,,,,
+Y,Achnanthes delicatula,Achnanthes septentrionalis,,,,,,1,1,3,5,16,1,2,2,,
+Y,Achnanthes exigua,,,1,1,,,98,7,100,24,208,,3,5,6,3
+,Achnanthes exigua var. elliptica,,,,,,,5,1,2,2,7,,,,,
+Y,Achnanthes japonica,,13,5,5,10,9,,,1,,,1,1,,,
+Y,Achnanthes lanceolata,,7,4,11,7,6,4,3,6,10,57,1,3,2,6,3
+Y,Achnanthes lanceolata subsp. Frequentissima var. magna,,6,,8,4,,,2,,3,1,,,,,
+Y,Achnanthes lanceolata subsp. Frequentissima var. minor,,8,1,5,6,7,6,1,2,8,27,2,4,1,4,3
+Y,Achnanthes lanceolata var. rostrata,,2,2,4,6,4,,2,2,,2,,,1,,
+Y,Achnanthes laterostrata,,1,,,1,,,,,,,,,,,
+Y,Achnanthes minutissima,,59,37,17,40,44,,3,1,8,3,5,2,2,3,2
+Y,Achnanthes minutissima var. jackii,,13,5,1,15,9,1,,,2,,1,,1,,
+Y,Achnanthes minutissima var. robusta,,18,11,8,16,9,,,,,,1,1,,,1
+Y,Achnanthes minutissima var. saprophila,,52,27,5,31,23,,1,1,2,2,,,,,
+Y,Achnanthes subhudsonis,,21,11,3,10,3,1,,,,1,,,,,
+Y,Achnanthes alteragracillima,Achnanthidium alteragraciliium,,,,,1,,,,,,,,,,
+Y,Achnanthidium latecephalum,,20,27,13,35,41,,,,,,,,,,
+Y,Amphora copulata,,,1,,,,1,2,,,,,4,2,,2
+Y,Amphora inariensis,,,,,,1,19,8,15,12,19,,,1,3,
+Y,Amphora pediculus,,14,24,42,61,60,2,5,11,7,21,2,,4,,1
+Y,Asterionella formosa,,4,,1,,3,6,8,2,7,6,24,22,9,16,3
+Y,Aulacoseira alpigena,,7,4,2,,,17,17,11,9,,137,118,122,152,134
+Y,Aulacoseira ambigua,,7,5,12,4,8,18,17,3,10,3,110,101,96,191,179
+Y,Aulacoseira granulata,,4,7,5,4,8,3,4,3,7,1,39,33,30,47,19
+Y,Aulacoseira islandica,,,,,,,,,,,,,,,,
+Y,Aulacoseira muzzanensis,,,,,,,,,6,,3,4,2,,5,2
+Y,Aulacoseira subarctica,,,,,,,,,,,,20,14,8,18,17
+Y,Aulacoseira valida,,,,,,,,,,,,3,,2,2,
+Y,Bacillaria paxillifera,,,2,,,,1,6,2,4,3,5,6,9,9,7
+Y,Caloneis bacillum,,,,,,,2,10,9,1,3,,,,1,2
+Y,Caloneis silicula,,,,,,,,1,,,,,,,,
+Y,Cocconeis pediculus,,4,3,1,4,11,,,,2,,1,2,1,,
+Y,Cocconeis placentula,,8,3,12,4,3,1,,,7,,,,1,,
+Y,Cocconeis placentula var. euglypta,,19,6,28,13,44,3,4,2,15,2,,1,2,2,1
+Y,Cocconeis placentula var. lineata,,16,6,10,4,6,,,,,,,,,,
+Y,Craticula accomoda,Navicula accomoda,,,,,1,,,,,,,,,,
+Y,Cyclostephanos invisitatus,,2,,8,,,,4,1,9,4,38,49,41,34,37
+Y,Cyclotella atomus,,2,,2,2,,,,,,,2,1,4,5,14
+,Cyclotella lacunarum (?),basionym: Cyclotella radiosa?,,,1,,,,,,,,,1,,,
+Y,Cyclotella meneghiniana,,3,4,2,5,4,8,7,2,,1,14,12,10,12,8
+Y,Discostella pseudostelligera,basionym: Cyclotella pseudostelligera,,,1,8,4,1,3,4,4,,17,25,28,11,26
+Y,Cyclostephanos dubius,,,,,,,,,1,,,,5,,,
+Y,Cymatopleura solea,,,1,,,,,,,,,,,,,1
+Y,Cymbella affins,,7,16,2,2,2,,,,,,2,3,1,,
+Y,Cymbella thienemanii,Encyonema thienemanii,,,,,3,,,,,,,,,,
+Y,Cymbella tumida,,,1,1,3,2,,1,,,,,1,1,1,1
+Y,Cymbella turgidula,,22,46,18,28,34,,,1,,1,3,2,6,1,1
+Y,Diadesmis confervacea,Navicula confervacea,,,,,,,1,3,2,,7,3,4,,
+Y,Diadesmis contenta,,,,,,,,,,,,,,1,,
+Y,Diatoma moniliformis,,,,,,,,,,1,,,,,,
+Y,Diatoma vulgaris,,13,25,18,15,41,,3,2,,,,,1,,1
+Y,Diploneis subovalis,,,,,,,,,,,,,,,,
+Y,Discostella stelligera,Cyclotella stelligera / C meneghiniana var. stelligera,8,8,18,8,5,2,4,4,2,1,1,9,21,14,12
+Y,Encyonema caespitosum,,,,1,,,,,,,,,,1,,
+Y,Encyonema minutum,Cymbella minuta,13,3,3,3,3,2,2,3,4,2,1,,3,2,
+Y,Encyonema silesiacum,,1,1,3,,,,,,,,2,,1,,
+Y,Encyonema ventricosum,,13,7,3,3,10,,1,,1,,,,,1,
+,Encyonopsis minuta,Cymbella microcephala,,,,,1,,,,,,,,,,
+Y,Fallacia tenera,Navicula tenera,3,,,,,,,,,,,,,,
+Y,Fragilaria ulna var. acus,Fragilaria acus / Synedra acus,1,1,,,,,,1,,,2,5,2,,
+Y,Fragilaria capitellata,Could be Fragilaria vaucheirae ,,,,,,,,,,,,,,,
+Y,Fragilaria capucina,,5,3,1,1,2,1,14,1,2,,2,9,11,2,
+Y,Synedra amphicephala,Fragilaria capucina var. amphicephala,,,1,,,,2,,,,,,,,
+Y,Fragilaria capucina var. gracilis,Fragilaria parva,3,,,,,,5,1,,,1,,4,,2
+Y,Fragilaria capucina var. mesolepta,,1,,,,,,1,,,,1,1,,1,
+Y,Fragilaria capucina var. radians,Fragilaria radians,1,,1,,,1,2,6,,,1,1,,1,1
+Y,Fragilaria capucina var. rumpens,F. rumpens,2,3,,,,,,,,1,,2,2,,1
+Y,Fragilaria vaucheriae,Fragilaria capucina var. vaucheriae,,,1,1,2,,15,11,,3,3,1,2,,2
+Y,Staurosira construens var. binodis,Fragilaria construens var.binodis Pseudostaurosira robusta,2,,4,3,6,,,1,2,2,1,4,9,4,
+Y,Fragilaria crotonensis,Might have been confused with Synedra delicatissima,55,41,38,22,18,1,9,5,2,1,6,9,7,7,2
+Y,Synedra delicatissima,Fragilaria delicatissima,,,,,,1,,,1,,17,48,63,41,27
+Y,Fragilaria famelica,Synedra minuscule,2,,,1,1,,,,,,,,,,
+Y,Fragilaria pulchella,Ctenophora pulchella,,1,,,1,,,,,,,,,,
+Y,Synedra rumpens var. fragilarioides,Fragilaria rumpens var. fragilarioides,,,1,,,,2,8,,2,,,1,2,
+Y,Fragilaria virescens,Fragilaria virescens var. exigua,,3,,1,1,,,,,,,,,,1
+Y,Gomphonema acuminatum,,,,,1,,,,,,,,,,,
+Y,Gomphonema angustatum,,,,,,1,,,,1,,,,,,
+Y,Gomphonema clevei,,,,,2,,,,,,,1,,2,,
+Y,Gomphonema gracile,,,,1,,,,,,,,,,,,
+Y,Gomphonema minutum,,1,,,1,7,,,,,,,,,,
+Y,Gomphonema olivaceum,,27,16,15,18,16,,,,,,1,,,,
+Y,Gomphonema parvulum,,4,1,2,,2,1,,,,,2,5,,1,
+Y,Gomphonema parvulum var. lagenula,,2,,1,2,7,,3,,2,,1,2,4,6,3
+Y,Gomphonema pseudoaugur,,,,,,,,,,,1,,,,,
+,Gyrosigma procerum? _spelling check,Gyrosigma procentrum (?),,,,,,1,,,1,,,,1,,
+Y,Nitzschia amphioxys,Hantzschia amphioxys,,,,,,,1,,1,,,,,,
+Y,Hippodonta capitata,,,,,,,,2,1,1,,1,2,1,3,
+Y,Hippodonta hungarica,,,,,,,,2,,1,1,,,,,
+Y,Achnanthes clevei,Karayevia clevei,,4,3,2,2,1,,3,,15,,1,2,,
+Y,Luticola goeppertiana,,,,,,,1,2,1,,,5,5,3,2,1
+Y,Melosira varians,,10,12,11,11,17,6,13,5,2,,28,14,27,14,11
+Y,Navicula amphiceropsis,,,,1,3,3,19,23,20,18,23,8,10,9,12,4
+Y,Navicula angusta,,2,3,1,2,,,2,,,,,,,,1
+Y,Navicula atomus var. nipponica,,,,,1,1,,2,2,,1,,,,,
+Y,Navicula bacillum,,,,,,,1,,,,,1,1,1,,1
+Y,Navicula capitatoradiata,,1,1,,,1,1,6,,2,1,1,3,3,2,1
+Y,Navicula cincta,,12,17,3,8,3,,6,4,1,,5,1,8,1,2
+Y,Navicula cryptocephala,,3,1,3,,1,2,1,1,,,,2,4,,1
+Y,Navicula cryptocephala var.venta,Navicula veneta,10,9,5,8,6,3,5,3,6,2,1,2,5,2,4
+Y,Navicula cryptotenella,,8,13,8,26,23,,6,3,,2,2,,3,3,
+Y,Navicula decussis,Geissleria decussis,1,,,,1,1,1,,5,,2,1,3,,
+Y,Navicula gregaria,,18,23,25,35,40,6,22,14,18,22,9,12,21,22,26
+Y,Navicula hintzii,,,,,,,,2,,1,,,,,,
+Y,Navicula hustedtii,,,,,,2,,3,,,,,,,,1
+Y,Navicula lanceolata,,,,,,,,1,,,,,,,,
+Y,Navicula laterostrata,,,1,1,2,3,,1,2,6,2,,,,,
+Y,Navicula minima var. atomoides,Navicula minima,2,4,3,1,,44,46,63,43,115,5,7,5,,7
+Y,Navicula notha,,4,3,1,,2,,,,,,1,,,,1
+Y,Navicula oppugnata,,,1,,,,,,,,,,,,,
+Y,Navicula minuscula,Navicula paucivisitata,,,1,,,,,,,,,1,,,
+Y,Navicula perminuta,,,,1,,1,,,,,1,,,,,
+Y,Navicula pseudoacceptata,,,,,,,1,,,,1,,,,1,1
+Y,Navicula pseudolanceolata,,,,,,,1,15,7,10,9,2,,1,1,
+Y,Sellaphora pupula,Navicula pupula,4,8,2,5,3,,2,1,2,,2,,2,2,
+Y,Navicula radiosa,,2,1,,,,,,,,,,,,,
+Y,Navicula radiosafallax,,,,,,1,,1,1,2,1,2,4,4,2,2
+Y,Navicula recens,,,,1,,,,,,,,,,,,
+Y,Navicula salinarum,,,,,,,,3,1,1,,,,,,
+Y,Navicula saprophila,,,,,,1,,,,,,,,,,1
+Y,Navicula schroeteri,Navicula symmetrica,,,,,,,2,,2,,1,2,3,,
+,Navicula seibigiana,,,,,,,1,,,,,,,,,
+Y,Navicula seminuloides,,,,,2,,2,4,2,2,7,1,,3,,
+Y,Eolimna subminuscula,Navicula subminuscula,,,1,1,,1,2,,1,2,,2,2,,3
+Y,Navicula suprinii,(Could be Navi. Cincta),,,,,,,14,18,2,,1,,,1,
+Y,Navicula trivialis,,,,,,,5,19,9,5,5,,,,2,1
+Y,Navicula viridula,,1,,,,,,,,,,,,,,1
+Y,Navicula viridula var. rostellata,Navicual rostellata,12,7,7,10,10,1,3,3,2,1,,4,5,3,1
+Y,Navicula viridulacalcis,,,,,,1,,,,,,,,,,
+Y,Navicula yuraensis,,,,,1,,,,,,,,,,,
+Y,Nitzschia acicularis,,,,,2,,,,,,,,1,,1,1
+Y,Nitzschia frustulum var. perminuta,Nitzschia acidodinata,,,,,,2,1,,3,1,3,1,1,4,3
+Y,Nitzschia amphibia,,,2,2,,,8,20,17,59,14,34,12,25,9,9
+Y,Nitzschia clausii,,,,,,,1,2,,1,,,,,,1
+Y,Nitzschia dissipata,,9,3,2,4,,1,,,,,2,,2,1,1
+Y,Nitzschia filiformis,,,,,,,3,1,1,3,,2,1,1,2,1
+Y,Nitzschia fonticola,,14,13,21,27,16,4,5,1,38,9,2,6,5,6,3
+Y,Nitzschia frustulum,,,,1,,,,,,,,,,,,
+Y,Nitzschia gracilis,,,,1,,,,,,,,,,,,1
+Y,Nitzschia hantzschiana,,,,,,,,,,,,,,,,
+,Nitzschia homburgiensis,Nitzschia thermalis,,,,,,,1,1,,1,1,,,,1
+Y,Nitzschia inconspicua,,10,5,2,6,8,11,21,26,145,27,3,4,3,3,4
+Y,Nitzschia intermedia,,,,1,,3,,,,,2,,1,,1,2
+Y,Nitzschia liebetruthii,,,,,,2,,,,1,,1,,1,3,
+Y,Nitzschia linearis,,1,,,,,,,,,,,,,,
+Y,Nitzschia palea,,6,,5,2,2,4,5,1,5,2,1,4,10,8,12
+Y,Nitzschia paleacea,,11,3,6,8,5,,3,,4,3,,1,1,,
+Y,Nitzschia perminuta,,,,,,,,,,,,,,,,
+Y,Nitzschia sinuata var. delognei,,,,,,1,,,,,,,,,,
+Y,Nitzschia subacicularis,,,,,,,,1,,,,,,,,
+Y,Nitzschia sublinearis,,,,,,,,,1,,,,,,,1
+Y,Nitzschia sinuata var. tabellaria,Nitzschia tabellia (Grunowia tabellaria),,1,2,,3,,,,,,,,1,,
+Y,Nitzschia tryblionella var. levidensis,Nitzschia tryblionella var. salinarum,,,,,,1,1,2,1,,3,,,,
+Y,Pinnularia microstauron,Pinnularia marchica,,,,,1,,,,,,,,,,
+Y,Pseudostaurosira brevistriata,,4,,,,1,,,,,,,,,,
+Y,Staurosira elliptica,Pseudostaurosira elliptica,,,7,13,13,28,62,36,47,24,23,24,33,33,15
+Y,Punctastriata linearis,,2,,4,4,3,,1,,,,2,1,2,1,2
+Y,Punctastriata ovalis,,3,,3,4,3,,,,1,,4,2,3,,4
+Y,Reimeria sinuata,,14,5,7,5,4,,1,,,,1,1,,1,
+Y,Sellaphora seminulum,Navicula seminulum,,,,1,,101,86,63,40,105,8,3,8,,8
+Y,Sellaphora stroemii,Navicula stroemii,,,,,,,,,,,,,,,
+Y,Stauroneis sp(?),N pupula var mutata or  N vitabunda,,,,,,,,,,,,,,,
+Y,Staurosira construens,Staurosira construens var. construens,,,4,,,,3,,,,,,,,2
+Y,Staurosira venter,Staurosira construens var.venter,22,18,12,13,2,,9,,1,,,,1,,
+,Stephanodiscus binatus (?),,,,,,,,,,,,,,,,
+Y,Stephanodiscus hantzschii,,11,5,5,3,4,32,39,16,23,22,33,67,68,91,78
+Y,Stephanodiscus minutulus,,,,,,1,,1,,,,,2,1,3,1
+Y,Surirella angusta,,2,,,,,,,,,,,,,,
+Y,Surirella minuta,,,1,,1,,,2,1,1,,,,5,3,4
+Y,Synedra tenera,confusing: Fragilaria crotonensis,34,26,30,26,17,6,,,2,3,,,,,3
+Y,Synedra ulna,Ulnaria ulna,4,3,2,3,5,1,4,3,,,11,20,21,11,4
+Y,Tabularia fasciculata,,3,2,5,1,3,,,,,,,,,,
+Y,Thalassiosira bramaputrae,,,,1,,,,,,,,3,5,3,2,1
+,Thalassiosira weissflogii,,1,,,,,,,,,,,,,,
+Y,Cocconeis neodiminuta,,,,,,,,,,,,,,,,3
+Y,Nitzschia capitellata,,,,,,,,,,1,,5,8,15,24,18
+Y,Navicula elginensis,,,,,,,,,,,,,1,1,2,1
+Y,Cymbella gracilis,Encyonema gracile,,,,,,,,,,,4,3,5,1,2
+Y,Rhoicosphenia abbreviata,,,,,,,,,,,,,,,1,1
+Y,Gyrosigma scalproides,,,,,,,,,,,,,1,,1,1
+Y,Nitzschia recta,,,,,,,,,,,,1,5,7,5,3
+Y,Pinnularia acrosphaeria,,,,,,,,,,,,,,,,1
+Y,Navicula ventralis,,,,,,,,,,,,,,,,1
+Y,Nitzschia nana,,,,,,,,,,,,,,,,1
+Y,Diploneis elliptica,,,,,,,,,,,,1,,2,,
+Y,Encyonema lange-bertalotii,,,,,,,,,,,,1,2,3,,
+Y,Pinnularia brebissonii,or Pinnularia viridis,,,,,,,,,,,,,1,,
+Y,Nitzschia bryophila,,,,,,,,,,,,,1,,,
+Y,Meridion circulare,,,,,,,,,,,,1,2,,,
+Y,Navicula tripunctata,,,,,,,,,,,,,1,,,
+Y,Achnanthes hungarica,,,,,,,,,,1,,,2,,,
+Y,Navicula germainii,Navicula viridula var. germainii,,,,,,,,,,,,1,,,
+Y,Navicula zanonii,,,,,,,,,,,,,1,,,
+,Nitzschia acula,(Nitz. Dis bigger size),,,,,,,,,,,,4,,,
+Y,Luticola mutica,Navicula mutica,,,,,,,,,,,,,,1,
+Y,Navicula pseudoventralis,,,,,,,,,,,,1,,,,
+Y,Navicula bryophila,,,,,,,,,,,,2,,,,
+Y,Diploneis pseudovalis,,,,2,,,,,,,,,,,,
