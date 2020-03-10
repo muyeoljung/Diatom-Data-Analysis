@@ -25,3 +25,7 @@ str(D15.Count.df)
 
 D15.Count.df$Site <- c("A","A","A","A","A","B","B","B","B","B","C","C","C","C","C")
 lda.D15 <- lda(Site ~ ., D15.Count.df)
+
+How to code? How to perform LDA here?
+                              
+                              
