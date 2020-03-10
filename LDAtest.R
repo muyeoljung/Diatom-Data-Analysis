@@ -28,4 +28,4 @@ lda.D15 <- lda(Site ~ ., D15.Count.df)
 
 How to code? How to perform LDA here?
                               
-                              
+LDA Code in branch? am I doing right??                     
