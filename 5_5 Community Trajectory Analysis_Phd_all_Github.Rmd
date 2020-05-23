@@ -1,0 +1,376 @@
+---
+title: "Community Trajectory Analysis (CTA) on Government Diatom Data Set"
+author: "Muyeol Jung"
+date: 22/05/20
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(vegan)
+library(vegclust)
+library(goeveg)
+library(RColorBrewer)
+library(smacof)
+library(randomcoloR)
+```
+
+## Introduction
+
+https://cran.r-project.org/web/packages/vegclust/vignettes/CTA.html#simple-example
+
+For Govermnemt Diatom Data, the result of nMDS isn't well-presented in 2D base or 3d base plots, so Community Trajectory Analysis is brought in to geometrically show the direction and angle in dimensional plot.
+
+
+## Data Process
+Government Diatom Data (Spring and Autumn from 2009 to 2018)
+1. Load
+2. Select : drop columns (HalfofYear, Bio.Code.Name, Density)
+3. Combine with Site Name and Create Stage by year
+4. Convert to wide format
+5. Extract Enviornment from the data
+
+```{r}
+# Load Government Data Set
+Raw_GV_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Gov_Diatom_Percentage.csv")
+#In order to import data from Github, URL for data must be "directoy" for RAW
+
+
+# Select
+GOV_DS <- Raw_GV_D %>% select(1,2,3,5,7)
+rm(Raw_GV_D)
+
+
+# Combine with Env by Bio Name column
+GOV_D_Env <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Studysites_20190725.csv")
+
+GOV_D_Env <- GOV_D_Env %>% select(-8, -10, -12:-16)
+colnames(GOV_D_Env)[9] <- "Bio.Code"
+Comb_GOV_Data <- left_join(GOV_D_Env, GOV_DS, by="Bio.Code")
+
+
+# Convert to wideformat, miscellaneous
+Wide_GOV_Data <- Comb_GOV_Data %>% spread(key = Species, value = Percent) %>% select(-421)
+#key = Column, value = in the table
+#421 column is NA value only
+
+Weir_Data <- Wide_GOV_Data %>% filter(River.Type=="Weir") # Env contains weir location, so need to drop the column
+Wide_GOV_Data <- Wide_GOV_Data %>% filter(River.Type!="Weir") # != for filter obs not containing
+
+a <- Wide_GOV_Data %>% select(12:420)
+a[is.na(a)]<-0
+
+Final_GOV_Data <- Wide_GOV_Data %>% select(1:11) %>% cbind(a)
+rm(a)
+rm(Comb_GOV_Data, GOV_D_Env, GOV_DS, Wide_GOV_Data)
+
+
+# Factors
+## Half Of Year: Change 1/2 to Spring/Autumn
+Final_GOV_Data$Half.Of.Year <- as.character(Final_GOV_Data$Half.Of.Year)
+Final_GOV_Data$Half.Of.Year <- factor(Final_GOV_Data$Half.Of.Year, levels = c("1", "2"),
+                                      labels = c( "Spring", "Autumn" ))
+
+## New Code Name
+
+Final_GOV_Data$New.Code.Name <-factor(Final_GOV_Data$New.Code.Name, levels = c(
+  "M1", "M2","M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15", "T1", "T2", "T3a", "T3b", "T4", "T5a", "T5b", "T6a", "T6b", "T7a", "T7b", "T8a", "T8b", "T9a", "T9b", "T10a", "T10b", "T11a", "T11b"))
+
+## River Name
+Final_GOV_Data$River.Name <- factor(Final_GOV_Data$River.Name, levels = c(
+  "ND", "BB", "NS", "YG", "BS", "WE", "GM", "KH", "HO", "HG", "NG", "MR"))
+
+Final_GOV_Data_M <- Final_GOV_Data %>% filter(River.Type=="M")
+Final_GOV_Data_T <- Final_GOV_Data %>% filter(River.Type=="T")
+
+
+#All_MY_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Final_Diatom_List_forAnalysis_datainput.csv")
+```
+
+
+
+## Analysis and Result
+
+1. Determine dimensions
+2. Stree plot
+3. nMDS (performs Nonmetric Multidimensional scaling (metaMDS))
+4. Community Trajectory Analysis (CTA) using nMDS (You can choose different types of multidimensional scaling methods)
+5. Visualise them
+6. Statistical Analysis (figures)
+
+### Determine dimensions
+```{r}
+#Extract Env from all data (Final Gov Data Set)
+Final_GOV_Env <- Final_GOV_Data %>% select(1:11)
+Final_GOV_Species <- Final_GOV_Data %>% select(-1:-11)
+
+# Determine the dimension
+dimcheckMDS(Final_GOV_Species, distance="bray") #goeveg package
+
+```
+
+Stress value is 0.215, just over the boundary at 3 dimension. As a result, 3 dimensional space is selected for nMDS with extra care in interpretation.
+
+Note.
+
+Certainly, there are too many species present and some of which are not significant.
+Perhaps, I could trim the dataset down with species less than 5%, then will it see an improvement in stress value?
+
+### Stress plot for Main stream and nMDS
+```{r}
+#meta MDS: non Metrical multidimensional scaling
+Final_ordination <- metaMDS(Final_GOV_Species, distance = "bray", k=3)
+stressplot(Final_ordination)
+
+```
+
+What are the line
+
+### Stress plot for Main / Tributaries and nMDS
+```{r}
+# Mainstream Stress value
+m <- Final_GOV_Data_M %>% select(-1:-11)
+dimcheckMDS(m)
+
+m_ordination <- metaMDS(m, distance = "bray", k=3)
+stressplot(m_ordination)
+
+# m (alone): stress value: 0.21 at 3 dimension
+
+# Tributaries Stress value
+t <- Final_GOV_Data_T %>% select(-1:-11)
+dimcheckMDS(t)
+
+t_ordination <- metaMDS(t, distance = "bray", k=3)
+stressplot(t_ordination)
+
+# t (alone): stress value: 0.21 at 3 dimension
+```
+
+Diatom data set for Spring / Autumn
+Mainstream and Tributaries both have 0.21 stress value at 3 dimensions and at dimension 4, the value falls within the boundary.
+
+For this experiment, 3 dimension is selected!
+
+## Community Trajectory Analysis (CTA)
+
+I created nMDS, one of multivariate analysis, ordination dimension reduction 
+
+
+#### Final ordination: Gov Data
+```{r}
+# Extract location of samples in dimensional space
+Fn_Ordi_Point3d <- data.frame(X=Final_ordination$points[,1],
+                                 Y=Final_ordination$points[,2],
+                                 Z=Final_ordination$points[,3]
+                                 )
+Fn_Ordi_nMDS_Result <- cbind(Fn_Ordi_Point3d, Final_GOV_Env)
+```
+
+#### Four square plots Spring/Autumn x Main/tributaries
+```{r}
+# by River Type
+Fn_Ordi_nMDS_Result %>% ggplot(aes(X, Y, colour=Z))+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Type)
+
+# by River Type ~ Year
+Fn_Ordi_nMDS_Result %>% ggplot(aes(X, Y, color=as.factor(Year)))+
+  geom_point(size=2)+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Type)
+
+# by River Name (M+T)
+Fn_Ordi_nMDS_Result %>% ggplot(aes(X, Y, colour=Z))+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Name)
+
+## Mainstream
+Fn_Ordi_nMDS_Result %>% filter(River.Type=="M") %>% 
+  ggplot(aes(X, Y, colour=Z))+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Name)
+
+## Tributaries
+Fn_Ordi_nMDS_Result %>% filter(River.Type=="T") %>% 
+  ggplot(aes(X, Y, colour=Z))+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Name)
+```
+
+
+#### Main stream: all sites in one graph
+
+```{r}
+#https://www.reed.edu/data-at-reed/resources/R/loops_with_ggplot2.html ggplot loops
+
+Fn_nMDS_M <- Fn_Ordi_nMDS_Result %>% filter(River.Type =="M") 
+Fn_nMDS_M_Site <- Fn_nMDS_M$New.Code.Name
+Fn_nMDS_M_Year <- Fn_nMDS_M$Year
+Fn_nMDS_M_Survey <- Fn_nMDS_M$Half.Of.Year
+
+# Spring / Autumn (select)
+## Spring
+ggplot(data=subset(Fn_nMDS_M, Half.Of.Year=="Spring"), aes(X, Y, color=New.Code.Name))+
+  geom_point()+
+  geom_path()+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
+  labs(title="nMDS results of Government Data Set",
+       subtitle = "Spring Diatom Data Set in Mainstream", 
+       caption = "Data Source: Government Data Set")
+
+## Autumn
+ggplot(data=subset(Fn_nMDS_M, Half.Of.Year=="Autumn"), aes(X, Y, color=New.Code.Name))+
+  geom_point()+
+  geom_path()+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
+  labs(title="nMDS results of Government Data Set",
+       subtitle = "Autumn Diatom Data Set in Mainstream", 
+       caption = "Data Source: Government Data Set")
+
+# Spring / Autumn (facet wrap)
+Fn_nMDS_M %>%
+  ggplot(aes(X, Y, color=Fn_nMDS_M_Site))+
+  geom_point()+
+  geom_path()+
+  geom_text(label=Fn_nMDS_M_Year, size=3, nudge_y=0.1, check_overlap = T)+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
+  labs(title="nMDS results of Government Data Set",
+       subtitle = "Spring and Autumn Diatom Data Sets in Mainstream", 
+       caption = "Data Source: Government Data Set")+
+  facet_wrap(~Half.Of.Year)
+
+```
+
+
+#### Main stream: each site in one graph, but one line in facet grid
+```{r}
+# All facet grid: hard to read
+ggplot(Fn_nMDS_M, aes(X, Y, colour=Z))+
+  geom_point(size=1)+
+  geom_path()+
+  geom_text(label=Fn_nMDS_M_Year, size=2, check_overlap = T)+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+
+  geom_vline(xintercept = 0, lty= 2, color="red")+
+  labs(title = "Comparisons of nMDS results between Spring and Autumn Diatom Data Sets",
+       caption = "Data Source: Government Data Set")+
+  facet_grid(Half.Of.Year~New.Code.Name)
+
+```
+
+Compare spring and Autumn trajectory?
+
+#### Main stream: facet_grid 5 sites in one graph for better resolutions
+```{r}
+# M1-M5 extraction
+Fn_M1M5 <-Fn_nMDS_M %>% filter(New.Code.Name=="M1"|New.Code.Name=="M2"|New.Code.Name=="M3"|New.Code.Name=="M4"|New.Code.Name=="M5")
+Fn_M1M5_Year <- Fn_M1M5$Year
+
+# M6-M10 extraction
+Fn_M6M10 <-Fn_nMDS_M %>% filter(New.Code.Name=="M6"|New.Code.Name=="M7"|New.Code.Name=="M8"|New.Code.Name=="M9"|New.Code.Name=="M10")
+Fn_M6M10_Year <- Fn_M6M10$Year
+
+# M11-M15 extraction
+Fn_M11M15 <-Fn_nMDS_M %>% filter(New.Code.Name=="M11"|New.Code.Name=="M12"|New.Code.Name=="M13"|New.Code.Name=="M14"|New.Code.Name=="M15")
+Fn_M11M15_Year <- Fn_M11M15$Year
+
+# M1-M5 ggplot
+ggplot(Fn_M1M5, aes(X, Y, colour=Z))+
+  geom_point(size=1)+
+  geom_path()+
+  geom_text(label = Fn_M1M5_Year, size=2, nudge_y = 0.1, check_overlap = T)+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+
+  geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_grid(Half.Of.Year~New.Code.Name)+
+  labs(title = "nMDS results: M1 - M5")
+
+# M6-M10 ggplot
+ggplot(Fn_M6M10, aes(X, Y, colour=Z))+
+  geom_point(size=1)+
+  geom_path()+
+  geom_text(label = Fn_M6M10_Year, size=2, nudge_y = 0.1, check_overlap = T)+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+
+  geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_grid(Half.Of.Year~New.Code.Name)+
+  labs(title = "nMDS results: M6 - M10")
+# M11-M15 ggplot
+ggplot(Fn_M11M15, aes(X, Y, colour=Z))+
+  geom_point(size=1)+
+  geom_path()+
+  geom_text(label = Fn_M11M15_Year, size=2, nudge_y = 0.1, check_overlap = T)+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+
+  geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_grid(Half.Of.Year~New.Code.Name)+
+  labs(title = "nMDS results: M11 - M15")
+```
+
+
+
+
+
+#### Main stream: each site in one graph using facet wrap
+
+```{r}
+# M1-M15 Spring / Autumn + Facet_wrap
+
+ggplot(data=subset(Fn_nMDS_M, Half.Of.Year=="Spring"), aes(X, Y, color=Z))+
+  geom_point()+
+  geom_path()+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_wrap(~New.Code.Name, ncol=5)
+
+ggplot(data=subset(Fn_nMDS_M, Half.Of.Year=="Autumn"), aes(X, Y, color=Z))+
+  geom_point()+
+  geom_path()+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_wrap(~New.Code.Name, ncol=5)
+
+
+## Comparison between Spring and Autumn Data in one facet wrap graph (3 dimensions omiited)
+Com_plot <- ggplot(Fn_nMDS_M, aes(X, Y, color=Half.Of.Year))+
+  geom_point()+
+  geom_path()+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_wrap(~New.Code.Name, ncol=5)
+
+Com_plot+ geom_text(data = Fn_nMDS_M, label=Fn_nMDS_M$Year, size=2, nudge_y = 0.2, check_overlap = T)+
+  labs(title = "nMDS results of Spring and Autumn Data Set")
+
+## Selective labelling with ggplot2
+
+ggplot(Fn_nMDS_M, aes(X, Y, colour=Z, label=Year))+
+  geom_point(size=1)+
+  geom_path()+
+  geom_text(data=subset(Fn_nMDS_M, Year > 2017 | Year < 2010), size=3,nudge_y = 0.2, check_overlap = T)+
+  theme_bw()+
+  geom_hline(yintercept = 0, lty= 2, color="red")+
+  geom_vline(xintercept = 0, lty= 2, color="red")+
+  facet_wrap(~New.Code.Name, ncol=5)
+
+```
