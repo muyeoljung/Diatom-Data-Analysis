@@ -15,6 +15,7 @@ library(goeveg)
 library(RColorBrewer)
 library(smacof)
 library(randomcoloR)
+library(matrixStats)
 ```
 
 ## Introduction
@@ -62,10 +63,15 @@ Wide_GOV_Data <- Wide_GOV_Data %>% filter(River.Type!="Weir") # != for filter ob
 a <- Wide_GOV_Data %>% select(12:420)
 a[is.na(a)]<-0
 
-Final_GOV_Data <- Wide_GOV_Data %>% select(1:11) %>% cbind(a)
-rm(a)
-rm(Comb_GOV_Data, GOV_D_Env, GOV_DS, Wide_GOV_Data)
+b <- Wide_GOV_Data %>% select(1:11) %>% mutate(Stage = case_when(Year >= 2009 & Year <= 2011 ~ "During",
+                        Year >= 2012 & Year <= 2018 ~ "Post"))
 
+# Remove columns where all values are 0
+a <- a %>% select_if(colSums(.) != 0) #409 columns -> 399
+
+Final_GOV_Data <- cbind(b,a)
+rm(a, b)
+rm(Comb_GOV_Data, GOV_D_Env, GOV_DS, Wide_GOV_Data)
 
 # Factors
 ## Half Of Year: Change 1/2 to Spring/Autumn
@@ -73,8 +79,10 @@ Final_GOV_Data$Half.Of.Year <- as.character(Final_GOV_Data$Half.Of.Year)
 Final_GOV_Data$Half.Of.Year <- factor(Final_GOV_Data$Half.Of.Year, levels = c("1", "2"),
                                       labels = c( "Spring", "Autumn" ))
 
-## New Code Name
+## Stage
+Final_GOV_Data$Stage <- factor(Final_GOV_Data$Stage, levels = c("During", "Post"))
 
+## New Code Name
 Final_GOV_Data$New.Code.Name <-factor(Final_GOV_Data$New.Code.Name, levels = c(
   "M1", "M2","M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15", "T1", "T2", "T3a", "T3b", "T4", "T5a", "T5b", "T6a", "T6b", "T7a", "T7b", "T8a", "T8b", "T9a", "T9b", "T10a", "T10b", "T11a", "T11b"))
 
@@ -103,8 +111,8 @@ Final_GOV_Data_T <- Final_GOV_Data %>% filter(River.Type=="T")
 ### Determine dimensions
 ```{r}
 #Extract Env from all data (Final Gov Data Set)
-Final_GOV_Env <- Final_GOV_Data %>% select(1:11)
-Final_GOV_Species <- Final_GOV_Data %>% select(-1:-11)
+Final_GOV_Env <- Final_GOV_Data %>% select(1:12)
+Final_GOV_Species <- Final_GOV_Data %>% select(-1:-12)
 
 # Determine the dimension
 dimcheckMDS(Final_GOV_Species, distance="bray") #goeveg package
@@ -124,6 +132,12 @@ Perhaps, I could trim the dataset down with species less than 5%, then will it s
 Final_ordination <- metaMDS(Final_GOV_Species, distance = "bray", k=3)
 stressplot(Final_ordination)
 
+goodness(Final_ordination)
+gof <- goodness(Final_ordination)
+gof
+
+plot(Final_ordination, display = "sites", type = "n")
+points(Final_ordination, display = "sites", cex = 2*gof/mean(gof))
 ```
 
 What are the line
@@ -131,7 +145,7 @@ What are the line
 ### Stress plot for Main / Tributaries and nMDS
 ```{r}
 # Mainstream Stress value
-m <- Final_GOV_Data_M %>% select(-1:-11)
+m <- Final_GOV_Data_M %>% select(-1:-12)
 dimcheckMDS(m)
 
 m_ordination <- metaMDS(m, distance = "bray", k=3)
@@ -140,7 +154,7 @@ stressplot(m_ordination)
 # m (alone): stress value: 0.21 at 3 dimension
 
 # Tributaries Stress value
-t <- Final_GOV_Data_T %>% select(-1:-11)
+t <- Final_GOV_Data_T %>% select(-1:-12)
 dimcheckMDS(t)
 
 t_ordination <- metaMDS(t, distance = "bray", k=3)
@@ -187,6 +201,14 @@ Fn_Ordi_nMDS_Result %>% ggplot(aes(X, Y, color=as.factor(Year)))+
   theme_bw()+
   facet_grid(Half.Of.Year~River.Type)
 
+# by River Type ~ Stage
+Fn_Ordi_nMDS_Result %>% ggplot(aes(X, Y, color=Stage))+
+  geom_point(size=2)+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Type)
+
 # by River Name (M+T)
 Fn_Ordi_nMDS_Result %>% ggplot(aes(X, Y, colour=Z))+
   geom_point()+
@@ -207,6 +229,15 @@ Fn_Ordi_nMDS_Result %>% filter(River.Type=="M") %>%
 ## Tributaries
 Fn_Ordi_nMDS_Result %>% filter(River.Type=="T") %>% 
   ggplot(aes(X, Y, colour=Z))+
+  geom_point()+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(Half.Of.Year~River.Name)
+
+## Tributaries: Half.of.Year:RiverName ~ Stage
+Fn_Ordi_nMDS_Result %>% filter(River.Type=="T") %>% 
+  ggplot(aes(X, Y, colour=Stage))+
   geom_point()+
   geom_vline(xintercept = 0, linetype=2, color="red")+
   geom_hline(yintercept = 0, linetype=2, color="red")+
@@ -341,14 +372,16 @@ ggplot(data=subset(Fn_nMDS_M, Half.Of.Year=="Spring"), aes(X, Y, color=Z))+
   geom_path()+
   theme_bw()+
   geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
-  facet_wrap(~New.Code.Name, ncol=5)
+  facet_wrap(~New.Code.Name, ncol=5)+
+  labs(title = "Spring nMDS results in Main stream")
 
 ggplot(data=subset(Fn_nMDS_M, Half.Of.Year=="Autumn"), aes(X, Y, color=Z))+
   geom_point()+
   geom_path()+
   theme_bw()+
   geom_hline(yintercept = 0, lty= 2, color="red")+geom_vline(xintercept = 0, lty= 2, color="red")+
-  facet_wrap(~New.Code.Name, ncol=5)
+  facet_wrap(~New.Code.Name, ncol=5)+
+  labs(title = "Autumn nMDS results in Main stream")
 
 
 ## Comparison between Spring and Autumn Data in one facet wrap graph (3 dimensions omiited)
@@ -373,4 +406,355 @@ ggplot(Fn_nMDS_M, aes(X, Y, colour=Z, label=Year))+
   geom_vline(xintercept = 0, lty= 2, color="red")+
   facet_wrap(~New.Code.Name, ncol=5)
 
+```
+
+### Trajectory lengths, angles and directionality
+
+
+#### Calculate distances for Community Trajectory Analysis (CTA)
+For distances, Spring and Autumn Data set should be separated
+
+```{r}
+# Caculate distances (dissimilarity) # either dist or vegdist
+# Cal distances using the results of nMDS (position on dimensional space)
+# Fn_nMDS_M <- Fn_Ordi_nMDS_Result %>% filter(River.Type =="M") 
+
+Fn_nMDS_M # <- Final nMDS result for Main stream
+
+# Spring / Mainstream
+Fn_nMDS_M_S <- Fn_nMDS_M %>% filter(Half.Of.Year=="Spring") # 133 obs
+Fn_nMDS_M_S_pt <- Fn_nMDS_M_S %>% select(1:3) # for calculating distances
+Fn_nMDS_M_S_Year <- Fn_nMDS_M_S$Year
+Fn_nMDS_M_S_Site <- Fn_nMDS_M_S$New.Code.Name
+
+# Autumn / Mainstream
+Fn_nMDS_M_A <- Fn_nMDS_M %>% filter(Half.Of.Year!="Spring") # 132 obs
+Fn_nMDS_M_A_pt <- Fn_nMDS_M_A %>% select(1:3) # for calculating distances
+Fn_nMDS_M_A_Year <- Fn_nMDS_M_A$Year
+Fn_nMDS_M_A_Site <- Fn_nMDS_M_A$New.Code.Name
+
+
+# calculating distances separately (Spring/Autumn)
+## Spring
+Dist_nMDS_M_S_pt <- vegdist(Fn_nMDS_M_S_pt, method="euclidean") # distance here are calculated between the points regardless dimensions
+## Autumn
+Dist_nMDS_M_A_pt <- vegdist(Fn_nMDS_M_A_pt, method="euclidean")
+
+```
+
+
+#### Trajectory lengths
+
+```{r}
+# Tjr length for Spring in Mainstream
+trajectoryLengths(Dist_nMDS_M_S_pt, Fn_nMDS_M_S_Site, Fn_nMDS_M_S_Year)
+
+Main_Trj_len_Spring <- trajectoryLengths(Dist_nMDS_M_S_pt, Fn_nMDS_M_S_Site, Fn_nMDS_M_S_Year)
+
+# Trj length for Autumn in Mainstream
+trajectoryLengths(Dist_nMDS_M_A_pt, Fn_nMDS_M_A_Site, Fn_nMDS_M_A_Year)
+
+Main_Trj_len_Autumn <- trajectoryLengths(Dist_nMDS_M_A_pt, Fn_nMDS_M_A_Site, Fn_nMDS_M_A_Year)
+
+```
+
+```{r}
+# Manual modification for rows where data are left alinged
+
+Fn_nMDS_M_S %>% filter(New.Code.Name=="M2") #2016, 2017, 2018 *
+Fn_nMDS_M_A %>% filter(New.Code.Name=="M2") #2016, 2017, 2018
+
+Fn_nMDS_M_S %>% filter(New.Code.Name=="M7") #2010-2018 (2009 missing) *
+Fn_nMDS_M_A %>% filter(New.Code.Name=="M7") #2011-2018 (2009, 2010 missing)
+
+Fn_nMDS_M_S %>% filter(New.Code.Name=="M9") #2009, 2010, 2012-2018 (2011 missing) *
+Fn_nMDS_M_A %>% filter(New.Code.Name=="M9") #2009, 2011-2018 (2010 missing)
+
+Fn_nMDS_M_S %>% filter(New.Code.Name=="M11") #2016, 2017, 2018 *
+Fn_nMDS_M_A %>% filter(New.Code.Name=="M11") #2016, 2017, 2018
+
+Fn_nMDS_M_S %>% filter(New.Code.Name=="M12") #2009-2018 (2017 missing) *
+Fn_nMDS_M_A %>% filter(New.Code.Name=="M12") #2009-2018 (2017 missing)
+
+#S1:09-10 / S2:10-11 / S3:11-12 / S4:12-13 / S5:13-14 / S6:14-15 / S7:15-16 / S8:16-17 / S9:17-18
+
+## Spring
+# M2: 2016, 2017, 2018 -> S8/S9
+Main_Trj_len_Spring[2,8:9] <- Main_Trj_len_Spring[2,1:2]
+Main_Trj_len_Spring[2,1:2] <- NA
+
+# M7: 2010-2018 -> S2-S9
+Main_Trj_len_Spring[7,2:9] <- Main_Trj_len_Spring[7,1:8]
+Main_Trj_len_Spring[7,1] <- NA
+
+# M9: 2011 missing -> S1 / S4-S9
+Main_Trj_len_Spring[9,4:9] <- Main_Trj_len_Spring[9,3:8]
+Main_Trj_len_Spring[9,2:3] <- NA
+
+# M11: 2016-2018 -> S8/S9
+Main_Trj_len_Spring[11,8:9] <- Main_Trj_len_Spring[11,1:2]
+Main_Trj_len_Spring[11,1:2] <- NA
+
+# M12: 2017 missing -> S1-S7, S8-S9: NA
+Main_Trj_len_Spring[12,8:9] <- NA
+
+## Autumn
+# M2: 2016, 2017, 2018 -> s8/S9
+Main_Trj_len_Autumn[2,8:9] <- Main_Trj_len_Autumn[2,1:2]
+Main_Trj_len_Autumn[2,1:2] <- NA
+
+# M7: 2011-2018 -> S3-S9
+Main_Trj_len_Autumn[7,3:9] <- Main_Trj_len_Autumn[7,1:7]
+Main_Trj_len_Autumn[7,1:2] <- NA
+
+# M9: 2010 missing -> S3-S9
+Main_Trj_len_Autumn[9,3:9] <- Main_Trj_len_Autumn[9,2:8]
+Main_Trj_len_Autumn[9,1:2] <- NA
+
+# M11: 2016-2018 -> s8/s9
+Main_Trj_len_Autumn[11,8:9] <- Main_Trj_len_Autumn[11,1:2]
+Main_Trj_len_Autumn[11,1:2] <- NA
+
+# M12: 2017 missing -> S1-S7, S8-S9: NA
+Main_Trj_len_Autumn[12,8:9] <- NA
+
+
+
+# Change to long format for ggplot (visualising trajectory lengths)
+# rownames to column and then, makes it tibble for long format transformation
+Ts_Sp <- Main_Trj_len_Spring %>% rownames_to_column() %>% mutate(Sum.Trj=rowSums(.[2:10], na.rm = TRUE)) %>% mutate(Survey="Spring") %>% select(-Trajectory) %>% as_tibble()
+
+Ts_Au <- Main_Trj_len_Autumn %>% rownames_to_column() %>% mutate(Sum.Trj=rowSums(.[2:10], na.rm = TRUE)) %>% mutate(Survey="Autumn") %>% select(-Trajectory) %>% as_tibble()
+
+Wide_Trj <- rbind(Ts_Sp, Ts_Au)
+rm(Ts_Sp, Ts_Au)
+
+#Factors
+Wide_Trj$rowname <- factor(Wide_Trj$rowname, levels = c("M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15"))  
+Wide_Trj$Survey <- factor(Wide_Trj$Survey, levels = c("Spring", "Autumn"))
+
+
+# Convert to long format
+Long_Trj_lengths <- Wide_Trj %>% gather(colnames(Wide_Trj)[2:11],
+                    key = "Segment",
+                    value = "Lengths")
+```
+
+```{r}
+# Segment Lengths Boxplot for comparions between Spring and Autumn
+Long_Trj_lengths %>% filter(Segment!="Sum.Trj") %>%
+  ggplot(aes(x=Segment, y=Lengths, fill=Survey))+
+  geom_boxplot()+
+  stat_summary(fun.y = mean, geom = "point", shape=20, size=2, color="black", fill="black",
+               aes(group = interaction(Survey, Segment)))+
+  theme_bw()
+
+# segments facet wrap(survey)
+Long_Trj_lengths %>% filter(Segment!="Sum.Trj") %>%
+  ggplot(aes(x=Segment, y=Lengths, group=rowname))+
+  geom_line(aes(linetype=rowname, color=rowname))+facet_wrap(~Survey)+theme_bw()
+
+# Segment lengths comparisons between Spring and Autumn + facet wrap(site)
+Long_Trj_lengths %>% filter(Segment!="Sum.Trj") %>%
+  ggplot(aes(x=Segment, y=Lengths, group=Survey))+
+  geom_line(aes(linetype=Survey, color=Survey))+geom_point(size=1)+
+  geom_vline(xintercept = 3, lty=2, color="red")+
+  facet_wrap(~rowname)+
+  theme_bw()+
+  theme(legend.position = c(1, 0), legend.justification = c(1, 0.5))
+
+
+#scale_x_discrete(labels=c("S1"="S1:09-10", "S2"="S2:10-11", "S3"="S3:11-12", "S4"="S4:12-13", "S5"="S5:13-14", "S6"="S6:14-15", "S7"="S7:15-16", "S8"="S8:16-17", "S9"="S9:17-18"))
+
+```
+
+## Trajectory Angles
+```{r}
+# Tjr angles for Spring in Mainstream
+trajectoryAngles(Dist_nMDS_M_S_pt, Fn_nMDS_M_S_Site, Fn_nMDS_M_S_Year)
+Main_Trj_Angle_Spring <- trajectoryAngles(Dist_nMDS_M_S_pt, Fn_nMDS_M_S_Site, Fn_nMDS_M_S_Year)
+
+# Tjr angles for Autumn in Mainstream
+trajectoryAngles(Dist_nMDS_M_A_pt, Fn_nMDS_M_A_Site, Fn_nMDS_M_A_Year)
+Main_Trj_Angle_Autumn <- trajectoryAngles(Dist_nMDS_M_A_pt, Fn_nMDS_M_A_Site, Fn_nMDS_M_A_Year)
+
+```
+
+```{r}
+# Modification of angles in the table
+
+# S1-S2: 09-10 / 10-11
+# S2-S3: 10-11 / 11-12 
+# S3-S4: 11-12 / 12-13
+# S4-S5: 12-13 / 13-14
+# S5-S6: 13-14 / 14-15
+# S6-S7: 14-15 / 15-16
+# S7-S8: 15-16 / 16-17
+# S8-S9: 16-17 / 17-18
+
+# M2: only 2016, 2017, 2018 (spring) / same (autumn)
+# M7: 2009 missing              / 2009, 2010 missing
+# M9: 2011 missing              / 2010 missing
+# M11: only 2016, 2017, 2018         / same
+# M12: 2017 missing             / same
+
+
+# Trj Angles in Spring
+# M2 -> S8-S9
+Main_Trj_Angle_Spring[2,8] <- Main_Trj_Angle_Spring[2,1]
+Main_Trj_Angle_Spring[2,1:2] <- NA
+
+# M7: S2-S3 / the end
+Main_Trj_Angle_Spring[7,2:8] <- Main_Trj_Angle_Spring[7,1:7]
+Main_Trj_Angle_Spring[7,1] <- NA
+
+# M9: S4-S5 / the end
+Main_Trj_Angle_Spring[9,4:8] <- Main_Trj_Angle_Spring[9,3:7]
+Main_Trj_Angle_Spring[9,1:3] <- NA
+
+# M11: -> s8-s9
+Main_Trj_Angle_Spring[11,8] <- Main_Trj_Angle_Spring[11,1]
+Main_Trj_Angle_Spring[11,1:2] <- NA
+
+# M12: s6-s7 okay, delete after
+Main_Trj_Angle_Spring[12,7] <- NA
+
+# Trj Angles in Autumn
+
+# M2 -> S8-S9
+Main_Trj_Angle_Autumn[2,8] <- Main_Trj_Angle_Autumn[2,1]
+Main_Trj_Angle_Autumn[2,1:2] <- NA
+
+# M7: S3-S4 / the end
+Main_Trj_Angle_Autumn[7,3:8] <- Main_Trj_Angle_Autumn[7,1:6]
+Main_Trj_Angle_Autumn[7,1:2] <- NA
+
+# M9: 2010 missing / s1-s2 delete, s2-s3 -> s3-s4
+Main_Trj_Angle_Autumn[9,3:8] <- Main_Trj_Angle_Autumn[9,2:7]
+Main_Trj_Angle_Autumn[9,1:2] <- NA
+
+# M11: -> s8-s9
+Main_Trj_Angle_Autumn[11,8] <- Main_Trj_Angle_Autumn[11,1]
+Main_Trj_Angle_Autumn[11,1:2] <- NA
+
+# M12: s6-s7 okay, delete after
+Main_Trj_Angle_Autumn[12,7] <- NA
+
+
+# Change to long format for ggplot (visualising trajectory lengths)
+# rownames to column and then, makes it tibble for long format transformation
+# mean: mean value among angles, sd: probably sd for rho.(sd for angles isn't matched), rho: homogeneity of angles
+
+Ts_Angle_Sp <- Main_Trj_Angle_Spring %>% rownames_to_column() %>% mutate(Mean.Trj.Angle=rowMeans(.[2:9], na.rm = TRUE), Survey="Spring") %>% select(-10:-12) %>% as_tibble()
+
+Ts_Angle_Au <- Main_Trj_Angle_Autumn %>% rownames_to_column() %>% mutate(Mean.Trj.Angle=rowMeans(.[2:9], na.rm = TRUE), Survey="Autumn") %>% select(-10:-12) %>% as_tibble()
+
+Wide_Trj_angle <- rbind(Ts_Angle_Sp, Ts_Angle_Au)
+rm(Ts_Angle_Sp, Ts_Angle_Au)
+
+# Change column name for merging later
+colnames(Wide_Trj_angle)[2:9] <- c("S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9")
+
+#Factors
+Wide_Trj_angle$rowname <- factor(Wide_Trj_angle$rowname, levels = c("M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15"))  
+Wide_Trj_angle$Survey <- factor(Wide_Trj$Survey, levels = c("Spring", "Autumn"))
+
+
+# Convert to long format
+Long_Trj_angle <- Wide_Trj_angle %>% gather(colnames(Wide_Trj_angle)[2:10],
+                    key = "Segment",
+                    value = "Angles")
+
+
+# Merge Tjr length and angle by join
+new_length <- Long_Trj_lengths %>% unite("Code", c("rowname", "Survey", "Segment"), remove = FALSE)
+new_angle <- Long_Trj_angle %>% unite("Code", c("rowname", "Survey", "Segment"))
+
+Trj_L_A <- left_join(new_length, new_angle, by="Code") %>% select(-1)
+
+```
+
+
+```{r}
+
+
+# Segments Angles Boxplot for comparions between Spring and Autumn
+Long_Trj_angle %>% filter(Segment!="Mean.Trj.Angle") %>% 
+  ggplot(aes(x=Segment, y=Angles, fill=Survey))+
+  geom_boxplot()+theme_bw()+
+  stat_summary(fun.y = mean, geom = "point", shape=20, size=2, color="black", fill="black",
+               aes(group = interaction(Survey, Segment)))
+
+# angles facet wrap(survey)
+Long_Trj_angle %>% filter(Segment!="Mean.Trj.Angle") %>% 
+  ggplot(aes(x=Segment, y=Angles, group=rowname))+
+  geom_line(aes(linetype=rowname, color=rowname))+facet_wrap(~Survey)+theme_bw()
+
+
+# Angles comparisons between Spring and Autumn + facet_warp (site)
+Long_Trj_angle %>% filter(Segment!="Mean.Trj.Angle") %>% 
+  ggplot(aes(x=Segment, y=Angles, group=Survey))+
+  geom_line(aes(linetype=Survey, color=Survey))+geom_point(size=1)+
+  geom_vline(xintercept = 1, lty=2, color="red")+
+  geom_hline(yintercept = 90, lty=2, color="blue")+
+  facet_wrap(~rowname)+
+  theme_bw()+
+  theme(legend.position = c(1,0), legend.justification = c(1,0.5))
+```
+
+## Rose diagram
+```{r}
+Trj_L_A
+
+Trj_L_A %>%
+  ggplot(aes(x=Angles, y=Lengths, color=Survey))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(aes(color=Survey, fill=Survey), stat = "identity", width = 1)+
+  scale_x_continuous(breaks = seq(0,180,20))
+
+Trj_L_A %>%
+  ggplot(aes(x=Angles, y=Lengths, color=Survey))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(aes(color=Survey, fill=Survey), stat = "identity")+
+  scale_x_continuous(breaks = seq(0,180,10))+
+  theme_bw()
+
+# Length / Angles comparisons between Spring and Autumn
+Trj_L_A %>%
+  ggplot(aes(x=Angles, y=Lengths))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(stat = "identity", width = 1)+
+  scale_x_continuous(breaks = seq(0,180,10))+
+  theme_bw()+facet_wrap(~Survey)
+
+# Length / Angles comparisons by time
+Trj_L_A %>% filter(Segment!="Sum.Trj") %>% 
+  ggplot(aes(x=Angles, y=Lengths))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(stat = "identity", width = 0.5)+
+  scale_x_continuous(breaks = seq(0,180,10))+
+  theme_bw()+facet_wrap(~Segment)
+
+
+# Length / Angles comparisons between Spring and Autumn
+Trj_L_A %>% filter(Segment=="S9") %>% 
+  ggplot(aes(x=Angles, y=Lengths))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(stat = "identity",width = 1)+
+  scale_x_continuous(breaks = seq(0,180,10))+
+  theme_bw()
+
+Trj_L_A %>% filter(rowname=="M1" | rowname=="M2" | rowname=="M3") %>% 
+  ggplot(aes(x=Angles, y=Lengths))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(stat = "identity",width = 1)+
+  scale_x_continuous(breaks = seq(0,180,10))+
+  theme_bw()
+
+Trj_L_A %>% filter(rowname!="M1" | rowname!="M2" | rowname!="M3") %>% 
+  ggplot(aes(x=Angles, y=Lengths))+
+  coord_polar(theta = "x", start = 0)+
+  geom_bar(stat = "identity",width = 1)+
+  scale_x_continuous(breaks = seq(0,180,10))+
+  theme_bw()
 ```
