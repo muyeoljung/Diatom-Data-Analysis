@@ -1,0 +1,230 @@
+---
+title: "How to Determine Dimensions for GOV Diatom Data Set"
+author: "Muyeol Jung"
+date: 05/06/20
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(vegan)
+library(vegclust)
+library(goeveg)
+library(RColorBrewer)
+library(smacof)
+library(randomcoloR)
+library(matrixStats)
+```
+
+## Introduction
+
+https://cran.r-project.org/web/packages/vegclust/vignettes/CTA.html#simple-example
+
+Stress value is a criterion for determining dimensions for nMDS when data are processed for dimension reductions.
+Generally, the more the number of variables is, the bigger the stress value is.
+
+The Government Data has 399 variables (species) and 613 observations. In order to position all data in reduced dimensions, how many dimensions are requred has to be carefully considered with as low stress value as.
+
+
+
+The original data set has 0.214 at 3 dimensional space, while 0.17? at 4 dimensional space.
+Therefore, before further analysis, I think how to lower the stress value to determine dimensions needs to be examined. 
+
+
+1. Raw Data 399 var * 613obs
+- 4 dimensions
+
+2. Subset Data: 37, 27? diatoms * 613 obs
+- 3 dimensions
+- 4 dimensions
+
+
+Order
+Data Process
+Raw Data: 4 dimensions
+Subset Data:
+What are differences between them?
+
+
+## Data Process
+Government Diatom Data (Spring and Autumn from 2009 to 2018)
+1. Load
+2. Select : drop columns (HalfofYear, Bio.Code.Name, Density)
+3. Combine with Site Name and Create Stage by year
+4. Convert to wide format
+5. Extract Enviornment from the data
+
+```{r}
+# Load Government Data Set
+Raw_GV_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Gov_Diatom_Percentage.csv")
+#In order to import data from Github, URL for data must be "directoy" for RAW
+
+
+# Select
+GOV_DS <- Raw_GV_D %>% select(1,2,3,5,7)
+rm(Raw_GV_D)
+
+
+# Combine with Env by Bio Name column
+GOV_D_Env <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Studysites_20190725.csv")
+
+GOV_D_Env <- GOV_D_Env %>% select(-8, -10, -12:-16)
+colnames(GOV_D_Env)[9] <- "Bio.Code"
+Comb_GOV_Data <- left_join(GOV_D_Env, GOV_DS, by="Bio.Code")
+
+
+# Convert to wideformat, miscellaneous
+Wide_GOV_Data <- Comb_GOV_Data %>% spread(key = Species, value = Percent) %>% select(-421)
+#key = Column, value = in the table
+#421 column is NA value only
+
+Weir_Data <- Wide_GOV_Data %>% filter(River.Type=="Weir") # Env contains weir location, so need to drop the column
+Wide_GOV_Data <- Wide_GOV_Data %>% filter(River.Type!="Weir") # != for filter obs not containing
+
+a <- Wide_GOV_Data %>% select(12:420)
+a[is.na(a)]<-0
+
+b <- Wide_GOV_Data %>% select(1:11) %>% mutate(Stage = case_when(Year >= 2009 & Year <= 2011 ~ "During",
+                        Year >= 2012 & Year <= 2018 ~ "Post"))
+
+# Remove columns where all values are 0
+a <- a %>% select_if(colSums(.) != 0) #409 columns -> 399
+
+Final_GOV_Data <- cbind(b,a)
+rm(a, b)
+rm(Comb_GOV_Data, GOV_D_Env, GOV_DS, Wide_GOV_Data)
+
+# Factors
+## Half Of Year: Change 1/2 to Spring/Autumn
+Final_GOV_Data$Half.Of.Year <- as.character(Final_GOV_Data$Half.Of.Year)
+Final_GOV_Data$Half.Of.Year <- factor(Final_GOV_Data$Half.Of.Year, levels = c("1", "2"),
+                                      labels = c( "Spring", "Autumn" ))
+
+## Stage
+Final_GOV_Data$Stage <- factor(Final_GOV_Data$Stage, levels = c("During", "Post"))
+
+## New Code Name
+Final_GOV_Data$New.Code.Name <-factor(Final_GOV_Data$New.Code.Name, levels = c(
+  "M1", "M2","M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15", "T1", "T2", "T3a", "T3b", "T4", "T5a", "T5b", "T6a", "T6b", "T7a", "T7b", "T8a", "T8b", "T9a", "T9b", "T10a", "T10b", "T11a", "T11b"))
+
+## River Name
+Final_GOV_Data$River.Name <- factor(Final_GOV_Data$River.Name, levels = c(
+  "ND", "BB", "NS", "YG", "BS", "WE", "GM", "KH", "HO", "HG", "NG", "MR"))
+
+Final_GOV_Data_M <- Final_GOV_Data %>% filter(River.Type=="M")
+Final_GOV_Data_T <- Final_GOV_Data %>% filter(River.Type=="T")
+
+
+#All_MY_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Final_Diatom_List_forAnalysis_datainput.csv")
+```
+
+### Data division: Species / Environments
+```{r}
+#Extract Env from all data (Final Gov Data Set)
+Final_GOV_Env <- Final_GOV_Data %>% select(1:12)
+Final_GOV_Species <- Final_GOV_Data %>% select(-1:-12)
+```
+
+
+
+## Raw Data: Determining dimensions
+```{r}
+# Raw Data
+dimcheckMDS(Final_GOV_Species, distance = "bray", k=4, trymax = 100)
+R_Ordi <- metaMDS(Final_GOV_Species, distance = "bray", k=4, trymax = 100)
+R_Ordi
+stressplot(R_Ordi)
+
+```
+
+Government Raw Data
+Stress value 0.4331320 0.2897915 0.2145983 0.1719221 0.1456821 0.1291016
+Dimensions       1         2         3         4         5        6
+Solution reached at 4 dimensions
+
+
+In general, 2 or 3 dimensions are likely selected as they are easy to handle, but for the data set, stress value at 3 dimensional spaces are over the boundary (0.2), so it may lead to misinterpretations based on data in wrong position. If raw data are directly used, then 4 dimensional space are to select.
+ 
+## Subset Raw Data with different criteria
+In order to reduce stress value, then taking a few insignificant species out of the data set could be an option by decreasing the number of variables to be able to minimise natural or human made noise.
+
+In that case, how much data will be chunked out needs to be carefully considered.
+```{r}
+# What are the most proportional species
+# accumulated proportion by Species
+All_GOV_Species <- bind_cols(Species=colnames(Final_GOV_Species), Total=(colSums(Final_GOV_Species))) %>% mutate(Prop=Total/sum(Total)*100)
+
+All_GOV_Species %>% filter(Prop>=1)
+
+All_GOV_Species %>% arrange(desc(Prop))
+
+# ggplot pie chart: unable to plot as there are too many species
+#ggplot(All_GOV_Species, aes(x="", y=Prop, fill=Species))+
+#  geom_bar(stat="identity", width=1) +
+#  coord_polar("y", start=0)
+
+# Proportion greater than 5% : 3 species The biggest 14%
+All_GOV_Species %>% filter(Prop>=5)
+All_GOV_Species %>% arrange(desc(Prop)) %>% filter(Prop>=5) %>% 
+  ggplot(aes(x="", y=Prop, fill=Species))+geom_bar(stat="identity", width = 1)+
+  coord_polar("y", start=0)+theme_void()
+
+# Proportion greater than 1% : 23 species
+All_GOV_Species %>% filter(Prop>=1)
+All_GOV_Species %>% arrange(desc(Prop)) %>% filter(Prop>=1) %>% 
+  ggplot(aes(x="", y=Prop, fill=Species))+geom_bar(stat="identity", width = 1)+
+  coord_polar("y", start=0)+theme_void()
+
+# Proportion greater than 0.5% : 37 species
+All_GOV_Species %>% filter(Prop>=0.5)
+All_GOV_Species %>% arrange(desc(Prop)) %>% filter(Prop>=.5) %>% 
+  ggplot(aes(x="", y=Prop, fill=Species))+geom_bar(stat="identity", width = 1)+
+  coord_polar("y", start=0)+theme_void()
+
+# Proportion greater than 0.1% : 81 species
+All_GOV_Species %>% filter(Prop>=0.1)
+All_GOV_Species %>% arrange(desc(Prop)) %>% filter(Prop>=.1) %>% 
+  ggplot(aes(x="", y=Prop, fill=Species))+geom_bar(stat="identity", width = 1)+
+  coord_polar("y", start=0)+theme_void()
+
+
+# How different stress values are at differnt subset?
+
+# data: Final_GOV_Species
+a <- colSums(Final_GOV_Species) # Sum of each column
+b <- sum(a) # Sum of sums up of all species (total)
+S_Pro <- a/b*100 # proportion of each species
+
+# Subset_%
+Subset_5 <- Final_GOV_Species[,S_Pro >=5, drop=FALSE]
+Subset_1 <- Final_GOV_Species[,S_Pro >=1, drop=FALSE]
+Subset_05 <- Final_GOV_Species[,S_Pro >=.5, drop=FALSE]
+Subset_01 <- Final_GOV_Species[,S_Pro >=.1, drop=FALSE]
+```
+
+```{r}
+Species05 <- colnames(Subset_05)
+write.csv(Species05, "D:/Rmarkdown/Species_05_List.csv")
+
+
+# Species 0.1% with lumped species removed
+lumpSpecies <- Subset_01 %>% select(contains("other")) # 4 species; Achnanthes, Cymbella, Fragilaria, Navicula
+Subset01_rm<- Subset_01 %>% select(-contains("other"))
+
+```
+
+## Stress value at different subsets
+```{r}
+#dimcheckMDS(Subset_5) #3 species Error too small
+dimcheckMDS(Subset_1)  #23 Species  3D 0.4069844 0.2579356 0.1926580 0.1516434 0.1219568 0.1044052 Solution 5
+dimcheckMDS(Subset_05) #37 Species  4D 0.4159719 0.2682650 0.2002437 0.1594612 0.1302783 0.1141135 No Solution
+dimcheckMDS(Subset_01) #81 Species  4D 0.4240555 0.2797260 0.2109288 0.1677039 0.1395957 0.1228120 No Solution
+dimcheckMDS(Subset01_rm) #77 Species  4D 0.4241538 0.2800313 0.2110616 0.1678022 0.1395913 0.1227646 Solution 4
+```
+
+## Conclusion
+
+The stress value of Government Data Set don't improve significantlty with a decreasing in the number of species based on significance. The smaller the number of species, the better stress values, but the proportion isn't significant.
+Therefore, the raw data set can be directly used for analysis.
