@@ -1,0 +1,862 @@
+---
+title: "Community Trajectory Analysis (CTA) on Government Diatom Data Set (4D)"
+author: "Muyeol Jung"
+date: 18/09/20
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(vegan)
+library(vegclust)
+library(goeveg)
+library(RColorBrewer)
+library(smacof)
+library(randomcoloR)
+library(matrixStats)
+library(viridis)
+library(ggplot2)
+```
+
+## Introduction
+
+https://cran.r-project.org/web/packages/vegclust/vignettes/CTA.html#simple-example
+
+GOVD, Trajectory Analysis is carried out to see.
+
+For Govermnemt Diatom Data, the result of nMDS isn't well-presented in 2D base or 3d base plots, so Community Trajectory Analysis is brought in to geometrically show the direction and angle in dimensional plot.
+
+
+## Data Process
+Government Diatom Data (Spring and Autumn from 2009 to 2018)
+1. Load
+2. Select : drop columns (HalfofYear, Bio.Code.Name, Density)
+3. Combine with Site Name and Create Stage by year
+4. Convert to wide format
+5. Extract Enviornment from the data
+
+```{r}
+# Load Government Data Set
+Raw_GV_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Gov_Diatom_Percentage.csv")
+#In order to import data from Github, URL for data must be "directoy" for RAW
+
+# Select
+GOV_DS <- Raw_GV_D %>% select(1,2,3,5,7)
+rm(Raw_GV_D)
+
+# Combine with Env by Bio Name column
+GOV_D_Env <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Studysites_20190725.csv")
+
+GOV_D_Env <- GOV_D_Env %>% select(-8, -10, -12:-16)
+colnames(GOV_D_Env)[9] <- "Bio.Code"
+Comb_GOV_Data <- left_join(GOV_D_Env, GOV_DS, by="Bio.Code")
+
+
+# Convert to wideformat, miscellaneous
+Wide_GOV_Data <- Comb_GOV_Data %>% spread(key = Species, value = Percent) %>% select(-421)
+#key = Column, value = in the table
+#421 column is NA value only
+
+Weir_Data <- Wide_GOV_Data %>% filter(River.Type=="Weir") # Env contains weir location, so need to drop the column
+Wide_GOV_Data <- Wide_GOV_Data %>% filter(River.Type!="Weir") # != for filter obs not containing
+
+a <- Wide_GOV_Data %>% select(12:420)
+a[is.na(a)]<-0
+
+b <- Wide_GOV_Data %>% select(1:11) %>% 
+  mutate(Stage = case_when(Year >= 2009 & Year <= 2011 ~ "During",
+                           Year >= 2012 & Year <= 2018 ~ "Post")) %>% 
+  mutate(TS_order = case_when(Year==2009 & Half.Of.Year=="1" ~ "1",
+                                               Year==2009 & Half.Of.Year=="2" ~ "2",
+                                               Year==2010 & Half.Of.Year=="1" ~ "3",
+                                               Year==2010 & Half.Of.Year=="2" ~ "4",
+                                               Year==2011 & Half.Of.Year=="1" ~ "5",
+                                               Year==2011 & Half.Of.Year=="2" ~ "6",
+                                               Year==2012 & Half.Of.Year=="1" ~ "7",
+                                               Year==2012 & Half.Of.Year=="2" ~ "8",
+                                               Year==2013 & Half.Of.Year=="1" ~ "9",
+                                               Year==2013 & Half.Of.Year=="2" ~ "10",
+                                               Year==2014 & Half.Of.Year=="1" ~ "11",
+                                               Year==2014 & Half.Of.Year=="2" ~ "12",
+                                               Year==2015 & Half.Of.Year=="1" ~ "13",
+                                               Year==2015 & Half.Of.Year=="2" ~ "14",
+                                               Year==2016 & Half.Of.Year=="1" ~ "15",
+                                               Year==2016 & Half.Of.Year=="2" ~ "16",
+                                               Year==2017 & Half.Of.Year=="1" ~ "17",
+                                               Year==2017 & Half.Of.Year=="2" ~ "18",
+                                               Year==2018 & Half.Of.Year=="1" ~ "19",
+                                               Year==2018 & Half.Of.Year=="2" ~ "20"))
+  
+
+# Remove columns where all values are 0
+a <- a %>% select_if(colSums(.) != 0) #409 columns -> 399
+
+Final_GOV_Data <- cbind(b,a)
+rm(a, b)
+rm(Comb_GOV_Data, GOV_D_Env, GOV_DS, Wide_GOV_Data)
+
+# Factors
+## Half Of Year: Change 1/2 to Spring/Autumn
+Final_GOV_Data$Half.Of.Year <- as.character(Final_GOV_Data$Half.Of.Year)
+Final_GOV_Data$Half.Of.Year <- factor(Final_GOV_Data$Half.Of.Year, levels = c("1", "2"),
+                                      labels = c( "Spring", "Autumn" ))
+
+## TS Time Series Order
+Final_GOV_Data$TS_order <- factor(Final_GOV_Data$TS_order, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"))
+
+## Stage
+Final_GOV_Data$Stage <- factor(Final_GOV_Data$Stage, levels = c("During", "Post"))
+
+## New Code Name
+Final_GOV_Data$New.Code.Name <-factor(Final_GOV_Data$New.Code.Name, levels = c(
+  "M1", "M2","M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15", "T1", "T2", "T3a", "T3b", "T4", "T5a", "T5b", "T6a", "T6b", "T7a", "T7b", "T8a", "T8b", "T9a", "T9b", "T10a", "T10b", "T11a", "T11b"))
+
+## River Name
+Final_GOV_Data$River.Name <- factor(Final_GOV_Data$River.Name, levels = c(
+  "ND", "BB", "NS", "YG", "BS", "WE", "GM", "KH", "HO", "HG", "NG", "MR"))
+
+Final_GOV_Data_M <- Final_GOV_Data %>% filter(River.Type=="M")
+Final_GOV_Data_T <- Final_GOV_Data %>% filter(River.Type=="T")
+
+
+#All_MY_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Final_Diatom_List_forAnalysis_datainput.csv")
+```
+
+
+
+## Analysis and Result
+
+1. Determine dimensions
+2. Stree plot
+3. nMDS (performs Nonmetric Multidimensional scaling (metaMDS))
+4. Community Trajectory Analysis (CTA) using nMDS (You can choose different types of multidimensional scaling methods)
+5. Visualise them
+6. Statistical Analysis (figures)
+
+### Data Separation: Env and Species
+```{r}
+#Extract Env from all data (Final Gov Data Set)
+Final_GOV_Env <- Final_GOV_Data %>% select(1:13)
+Final_GOV_Species <- Final_GOV_Data %>% select(-1:-13)
+```
+
+### Determine dimensional space (Raw Data) (Stress value)
+```{r}
+# Determine the dimension <- Dimension Check for Raw Data 
+
+# dimcheckMDS(Final_GOV_Species, distance="bray") #goeveg package
+# Stress value
+# 0.4331320 0.2900153 0.2146054 0.1719152 0.1456619 0.1290720
+```
+
+Stress value (0.171) for original data falls within a boundary at 4 dimensional space,
+
+
+### Determin dimensional space (Selected Data)
+* Import GOVD Species Percentage List
+* Extract the list of Species (Species greater than 0.1 with 4 lump removed)
+* Perform Dimcheck MDS 
+
+```{r}
+# Import GOVD Species Percentage List (created in 5_3_1_1 Data Cleaning Species Percentage)
+Per_Species_List <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Species_prop.csv") %>% select(-1)
+
+# Extract the list of species; Greater than 0.1% & No lump species
+Species_01_rm_lump <- Per_Species_List %>% filter(Prop > 0.1) %>% filter(!grepl("(other)", Species))
+List_01_rm_lump <- Species_01_rm_lump$Species
+
+Final_selected_GOV_Species <- Final_GOV_Species[,List_01_rm_lump, drop=FALSE]
+
+# Perform dimension check
+dimcheckMDS(Final_selected_GOV_Species, distance = "bray")
+# 0.4241538 0.2810874 0.2110734 0.1678133 0.1395898 0.1227646
+```
+
+### Perform nMDS and stress plot for Final Selected Species Set (0.1%)
+```{r}
+#meta MDS: non Metrical multidimensional scaling
+Final_ordination <- metaMDS(Final_selected_GOV_Species, distance = "bray", k=4, trymax = 100)
+# -> Solution reached
+# Stress plot
+stressplot(Final_ordination)
+```
+
+* Solution reached. Non-metric fit R2=0.972, Linear fit R2=0.761 (Selected Species Set, 0.1%)
+* Solution reached. Non-metric fit R2=0.970, Linear fit R2=0.747 (Raw Data Value)
+
+### Perform nMDS and stress plot for for Raw Data
+
+```{r}
+#meta MDS: non Metrical multidimensional scaling
+#Final_ordination_Raw <- metaMDS(Final_GOV_Species, distance = "bray", k=4, trymax = 100)
+#stressplot(Final_ordination_Raw)
+#rm(Final_ordination_Raw)
+```
+
+Solution reached. Non-metric fit R2=0.970, Linear fit R2=0.747 (Raw Data)
+
+Colclusion
+* Extracting 77 Species improves ordination by 0.014 in Linear fit
+* Extracting 77 Species improves ordination by 0.002 in Non-metric fit
+* So, extacting 77 species still preserves the main structure of dataset, while marginally improving ordination.
+* For this analysis, selected Data Set will be used.
+
+
+## Community Trajectory Analysis (CTA) using nMDS ordination results
+
+I created nMDS, one of multivariate analysis, ordination dimension reduction 
+
+
+#### Creating DF for Points from nMDS Ordination (Selected Ordination Data)
+
+```{r}
+# Extract location of samples in dimensional space
+Fn_Ordi_Point_4d <-scores(Final_ordination, display = "sites", shrink = FALSE, choices = c(1, 2, 3, 4)) %>% data.frame()
+
+# Combine the points with Env: Point + Env
+Fn_Ordi_nMDS_Result <- cbind(Fn_Ordi_Point_4d, Final_GOV_Env)
+
+
+# Species position in dimensional space
+Fn_Ordi_Species <- scores(Final_ordination, display = "species", shrink = FALSE, choices = c(1, 2, 3, 4)) %>% data.frame() 
+
+```
+
+
+#### Species Score in Gov Diatom Data Set
+?????
+```{r}
+?trajectorySelection
+a<-vegdist(Final_GOV_Species, method = "bray")
+a
+factoextra::fviz_dist(a, lab_size = 10)
+
+T_Site <- Final_GOV_Env$New.Code.Name
+T_Survey <- Final_GOV_Env$TS_order
+trajectoryPlot(Fn_Ordi_Point4d, T_Site, T_Survey, axes = c(1, 2, 3, 4))
+
+# Species score: 1+2+3
+Spec123 <-
+Species_05 %>% ggplot(aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)))+
+  geom_point(size=.5)+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_text(size=1.5, hjust=0.5, vjust=-0.5)+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Species 123", color="NMDS3 / NMDS4" )+
+  theme(legend.title = element_text(size = 7), legend.text = element_text(size = 5),
+        axis.title.x = element_text(size=7), axis.title.y = element_text(size=7),
+        axis.text.x = element_text(size=7), axis.text.y = element_text(size=7))
+
+# Species score: 1+2+4
+Spec124<-
+Species_05 %>% ggplot(aes(NMDS1, NMDS2, colour=NMDS4, label=rownames(Species_05)))+
+  geom_point(size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_text(size=1.5, hjust=0.5, vjust=-0.5)+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Species 124")+
+  theme(axis.title.x = element_text(size=7), axis.title.y = element_text(size=7),
+        axis.text.x= element_text(size=7), axis.text.y = element_text(size=7))
+
+
+# Merge 123 + 124 for comparisons
+Mer <- ggpubr::ggarrange(Spec123, Spec124 +theme(axis.text.y = element_blank(),
+                                                 axis.ticks.y = element_blank(),
+                                                 axis.title.y = element_blank()), 
+                         ncol = 2,
+                         labels = "auto", font.label = list(size = 10, color = "black", face = "bold", family = NULL),
+                         hjust = c(-5, 0),
+                         common.legend=TRUE, legend = "bottom") %>% 
+  ggpubr::annotate_figure(top = "Test Title",
+                          bottom = ggpubr::text_grob("Data Source: Government Data Set", size=7, hjust=1, x=1))
+
+
+ggsave("Mer.png", type="cairo", dpi = 500, height = 10, units = "cm")
+# To manually modify legend, the work should be done in the first plot and then set it common in ggarrange
+# Shared axis info https://aosmith.rbind.io/2019/05/13/small-multiples-plot/#using-cowplot-to-combine-plots
+
+
+```
+
+#### CTA using Time-Series basis: Main stream by Year
+```{r}
+## Create DF for the number of Observations for each year
+Num_Obs_Year <- Fn_Ordi_nMDS_Result %>% filter(River.Name=="ND") %>% group_by(Year, Half.Of.Year) %>% summarise(Number=n())
+
+
+## By year (Spring) in Mainstream from M1 to M15
+Trj_Main_Spring <-
+  ggplot()+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND" & Half.Of.Year=="Spring"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=New.Code.Name), size=2, shape=16)+
+    geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND" & Half.Of.Year=="Spring"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  ggrepel::geom_text_repel(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND" & Half.Of.Year=="Spring"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=New.Code.Name),
+             size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  theme_bw()+
+  theme(legend.position = "right")+ #legend.direction = "horizontal")+
+  facet_wrap(~Year, nrow = 2)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(caption = "Data: GOV Diatom Data")+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = subset(Num_Obs_Year, Half.Of.Year=="Spring"), aes(x=-1, y=-1, label= Number, inherit.aes=FALSE))
+
+ggsave("Trj_Main_Spring.png", type = "cairo",  dpi=500, width=25, unit="cm")
+
+
+## By year (Autumn) in Mainstream from M1 to M15
+Trj_Main_Autumn <-
+  ggplot()+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND" & Half.Of.Year=="Autumn"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=New.Code.Name), size=2, shape=16)+
+    geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND" & Half.Of.Year=="Autumn"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  ggrepel::geom_text_repel(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND" & Half.Of.Year=="Autumn"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=New.Code.Name),
+             size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  theme_bw()+
+  theme(legend.position = "right")+ #legend.direction = "horizontal")+
+  facet_wrap(~Year, nrow = 2)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(caption = "Data: GOV Diatom Data")+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = subset(Num_Obs_Year, Half.Of.Year=="Autumn"), aes(x=-1, y=-1, label= Number, inherit.aes=FALSE))
+
+ggsave("Trj_Main_Autumn.png", type = "cairo",  dpi=500, width=25, unit="cm")
+
+
+
+## By Year (Spring and Autumn Together) in Mainstream from M1 to M15
+
+Trj_Main_Spr_Aut <-
+  ggplot()+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=New.Code.Name), size=2, shape=16)+
+    geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  ggrepel::geom_text_repel(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=New.Code.Name),
+             size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  theme_bw()+
+  theme(legend.position = "right")+ #legend.direction = "horizontal")+
+  facet_grid(Half.Of.Year~Year)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(caption = "Data: GOV Diatom Data")+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = Num_Obs_Year, aes(x=-1, y=-1, label= Number, inherit.aes=FALSE))
+
+ggsave("Trj_Main_Spr_Aut.png", type = "cairo",  dpi=500, width=30, unit="cm")
+
+
+# How to add "n=" before the number
+# How to add another legend for numbering 1, 2, 3, ....20
+
+```
+
+
+#### CTA using Time-Series basis: Main stream by Site
+```{r}
+## Create DF for the number of Observations for site
+Num_Obs_Site <- Fn_Ordi_nMDS_Result %>% filter(River.Name=="ND") %>% group_by(New.Code.Name) %>% summarise(Number=n())
+  
+## Time Series (Spring-Autumn) Trajectory: Main Stream by Site
+Trj_Main_Site <-
+  ggplot()+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=2)+
+    geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  ggrepel::geom_text_repel(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order),
+             size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  theme_bw()+
+  theme(legend.position = c(1, 0), legend.justification = c(1, 0), legend.direction = "horizontal")+
+  facet_wrap(~New.Code.Name, nrow = 4)+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(caption = "Data: GOV Diatom Data")+
+  scale_shape_discrete(name="Survey")+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = Num_Obs_Site, aes(x=0.8, y=-0.8, label= Number, inherit.aes=FALSE))
+
+ggsave("Trj_Main_Site.png", type = "cairo",  dpi=500, width=25, unit="cm")
+
+
+
+
+# ===============
+#https://stackoverflow.com/questions/38285694/geom-point-plot-with-only-number-without-circles
+# Create a plot with number instead of points
+Trj_Main_Site1 <-
+  ggplot()+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=2)+
+    geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+    theme_bw()+
+  theme(legend.position = c(1, 0), legend.justification = c(1, 0), legend.direction = "horizontal")+
+  facet_wrap(~New.Code.Name, nrow = 4)+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(caption = "Data: GOV Diatom Data")+
+  scale_shape_discrete(name="Survey")+
+  guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = Num_Obs_Site, aes(x=0.8, y=-0.8, label= Number, inherit.aes=FALSE))
+
+ggsave("Trj_Main_Site1.png", type = "cairo",  dpi=500, width=25, unit="cm")
+
+
+
+
+
+# TS 124
+Time_trj2 <-
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS4, label=TS_order, shape=Half.Of.Year), size=2)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS4, label=TS_order), size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS4), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+theme(legend.position = c(1, 0), legend.justification = c(1, 0), legend.direction = "horizontal")+
+  facet_wrap(~New.Code.Name, nrow = 4)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Time Series Trajectory in Main Stream", caption = "Data: GOV Diatom Data")+
+  scale_shape_discrete(name="Survey")+guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = TestObs, aes(x=1, y=-1, label= n, inherit.aes=FALSE))
+
+ggsave("Time_trj2.png", type = "cairo",  dpi=500, width=25, unit="cm")
+
+# Ts 134
+Time_trj3 <-
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS3, colour=NMDS4, label=TS_order, shape=Half.Of.Year), size=2)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS3, colour=NMDS4, label=TS_order), size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS3, colour=NMDS4), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+theme(legend.position = c(1, 0), legend.justification = c(1, 0), legend.direction = "horizontal")+
+  facet_wrap(~New.Code.Name, nrow = 4)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Time Series Trajectory in Main Stream", caption = "Data: GOV Diatom Data")+
+  scale_shape_discrete(name="Survey")+guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = TestObs, aes(x=1, y=-1, label= n, inherit.aes=FALSE))
+
+ggsave("Time_trj3.png", type = "cairo",  dpi=500, width=25, unit="cm")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#-----------------
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=2)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+theme(legend.position = c(1, 0), legend.justification = c(1, 0), legend.direction = "horizontal")+
+  facet_wrap(~New.Code.Name, nrow = 4)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Time Series Trajectory in Main Stream", caption = "Data: GOV Diatom Data")+
+  scale_shape_discrete(name="Survey")+guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="ND") %>% group_by(New.Code.Name) %>% mutate(NewCode_Count = n()) %>% ungroup() %>% mutate(Plotname_update = paste0(New.Code.Name, "n=", NewCode_Count))
+
+  
+#--------
+mms.cor <- ddply(.data=mms, .(type, color), summarize, n=paste("n =", length(deliciousness)))
+
+a <- 
+  plyr::ddply(.data=subset(Fn_Ordi_nMDS_Result, River.Name=="ND", summarise, n=paste("n="), group_by(New.Code.Name)))
+
+
+
+TestObs <- Fn_Ordi_nMDS_Result %>% filter(River.Name=="ND") %>% group_by(New.Code.Name) %>% summarise(n=n())
+data = plyr::count(mms, vars = c("deliciousness"))
+
+
+scale_y_continuous(limits=c(0, 50), position = "bottom", labels=scales::number) + labs(title= "CO2 dataset : Upate versus Treatment, Type and Plant", x="Treatment", y="Uptake") + scale_colour_discrete(guide = FALSE) +
+  geom_text(data=totals, aes(Treatment, uptake, label=label), 
+            vjust=0, hjust=0, inherit.aes=FALSE)
+
+
+TestObs <- plyr::ddply(.data=subset(Fn_Ordi_nMDS_Result, River.Name=="ND"),
+                 summarise, n=paste("n=", length(as.character(New.Code.Name)))
+
+Fn_Ordi_nMDS_Result %>% length(New.Code.Name)
+Fn_Ordi_nMDS_Result %>% count(as.character(New.Code.Name))
+
+
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=2)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=2, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.2, "cm")), size=0.3)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+theme(legend.position = c(1, 0), legend.justification = c(1, 0), legend.direction = "horizontal")+
+  facet_wrap(~New.Code.Name, nrow = 4)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Time Series Trajectory in Main Stream", caption = "Data: GOV Diatom Data")+
+  scale_shape_discrete(name="Survey")+guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5),
+         size = guide_legend(title.position="top", title.hjust = 0.5, title.vjust = 1))+
+  geom_text(data = TestObs, aes(x=1, y=-1, label=n), inherit.aes=FALSE)
+
+totals = CO2 %>% 
+  count(Plant) %>% 
+  mutate(label=paste('Count:', n), Treatment='nonchilled', uptake=50)
+                 
+mms.cor <- ddply(.data=mms, 
+                 .(type, color), 
+                 summarize, 
+                 n=paste("n =", length(deliciousness)))
+
+
+
+
+## Time Series (Spring-Autumn) Trajectories; Main stream + without line
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, River.Name=="ND"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_wrap(~New.Code.Name)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  labs(title = "Time Series Trajectories in Main Stream")
+
+
+```
+
+
+#### Time Series Analysis: Tributaries
+```{r}
+
+## Time Series (Spring-Autumn) Trajectories: Tributaries
+Fn_Ordi_nMDS_Result %>% filter(River.Type=="T") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  facet_grid(New.Code.Name~River.Name)+scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="BB") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="NS") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="YG") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_wrap(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="BS") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="WE") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="GM") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="KH") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="HO") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="HG") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="NG") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="MR") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+
+# Without line, to show sets of cluster
+Fn_Ordi_nMDS_Result %>% filter(River.Name=="MR") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")+
+  facet_grid(~New.Code.Name)
+```
+
+```{r}
+Fn_Ordi_nMDS_Result %>% filter(New.Code.Name=="M15") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+Fn_Ordi_nMDS_Result %>% filter(New.Code.Name=="M10") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+Fn_Ordi_nMDS_Result %>% filter(New.Code.Name=="M4") %>% 
+  ggplot()+
+  geom_point(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+
+```
+
+
+```{r}
+# Combined scatter plots (Sites + Species)
+## M1
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M1"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M1"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M1"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  geom_point(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), colour="red", pch=3, size=1)+
+  geom_text(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), size=2, hjust=0.5, vjust=0.5)+
+  labs(title = "Diatom Trjaectories on Time Series at Site M1 with Species")+
+  scale_x_continuous(breaks=seq(-1, 1, 0.5))+ scale_y_continuous(breaks=seq(-1, 1, 0.5))+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+# scale_color_viridis(option = "D") instead of it
+
+## M4
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M4"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M4"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M4"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  geom_point(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), colour="red", pch=3, size=1)+
+  geom_text(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), size=2, hjust=0.5, vjust=0.5)+
+  labs(title = "Diatom Trjaectories on Time Series at Site M4 with Species")+
+  scale_x_continuous(breaks=seq(-1, 1, 0.5))+ scale_y_continuous(breaks=seq(-1, 1, 0.5))+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+## M5
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M5"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M5"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M5"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  geom_point(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), colour="red", pch=3, size=1)+
+  geom_text(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), size=2, hjust=0.5, vjust=0.5)+
+  labs(title = "Diatom Trjaectories on Time Series at Site M5 with Species")+
+  scale_x_continuous(breaks=seq(-1, 1, 0.5))+ scale_y_continuous(breaks=seq(-1, 1, 0.5))+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+## M12
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M12"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M12"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M12"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  geom_point(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), colour="red", pch=3, size=1)+
+  geom_text(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), size=2, hjust=0.5, vjust=0.5)+
+  labs(title = "Diatom Trjaectories on Time Series at Site M12 with Species")+
+  scale_x_continuous(breaks=seq(-1, 1, 0.5))+ scale_y_continuous(breaks=seq(-1, 1, 0.5))+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+## M13
+ggplot()+
+  geom_point(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M13"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order, shape=Half.Of.Year), size=3)+
+  geom_text(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M13"), 
+             aes(x=NMDS1, y=NMDS2, colour=NMDS3, label=TS_order), size=4, hjust=0.5, vjust=0.5, color="black", nudge_x=.05)+
+  geom_path(data = subset(Fn_Ordi_nMDS_Result, New.Code.Name=="M13"), 
+            aes(x=NMDS1, y=NMDS2, colour=NMDS3), arrow = arrow(length = unit(0.3, "cm")), size=0.5)+
+  geom_hline(yintercept = 0, linetype=2, color="red")+
+  geom_vline(xintercept = 0, linetype=2, color="red")+
+  theme_bw()+
+  geom_point(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), colour="red", pch=3, size=1)+
+  geom_text(data=Species_05, aes(NMDS1, NMDS2, colour=NMDS3, label=rownames(Species_05)), size=2, hjust=0.5, vjust=0.5)+
+  labs(title = "Diatom Trjaectories on Time Series at Site M13 with Species")+
+  scale_x_continuous(breaks=seq(-1, 1, 0.5))+ scale_y_continuous(breaks=seq(-1, 1, 0.5))+
+  scale_color_gradient2(low="blue", mid="darkgrey", high="red", space ="Lab")
+
+```
+
+
+
+
+
+
+
+
+```{r}
+# Year + Half.Of.Year -> New order 
+# 2009 1-2
+# 2010 3-4
+# 2011 5-6
+# 2012 7-8
+# 2013 9-10
+# 2014 11-12
+# 2015 13-14
+# 2016 15-16
+# 2017 17-18
+# 2018 19-20
+
+```
