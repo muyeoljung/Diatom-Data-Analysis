@@ -1,0 +1,195 @@
+---
+title: "Data Cleaning for Species Percentage List"
+author: "Muyeol Jung"
+date: 18/09/20
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(vegan)
+library(vegclust)
+library(goeveg)
+library(RColorBrewer)
+library(smacof)
+library(randomcoloR)
+library(matrixStats)
+```
+
+## Introduction
+
+https://cran.r-project.org/web/packages/vegclust/vignettes/CTA.html#simple-example
+
+GOVD have 399 species in the study area. 
+Need to extract some species that have more meaning than others and can tell me what are true story happeneing behind all species.
+
+Therefore, species selected greater than 0.1, 0.5, 1% are put into analysis for how the original structure show in Dimensional Check.
+
+
+## Data Process
+Government Diatom Data (Spring and Autumn from 2009 to 2018)
+1. Load
+2. Select : drop columns (HalfofYear, Bio.Code.Name, Density)
+3. Combine with Site Name and Create Stage by year
+4. Convert to wide format
+5. Extract Enviornment from the data
+
+```{r}
+# Load Government Data Set
+Raw_GV_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Gov_Diatom_Percentage.csv")
+#In order to import data from Github, URL for data must be "directoy" for RAW
+
+
+# Select
+GOV_DS <- Raw_GV_D %>% select(1,2,3,5,7)
+rm(Raw_GV_D)
+
+
+# Combine with Env by Bio Name column
+GOV_D_Env <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Studysites_20190725.csv")
+
+GOV_D_Env <- GOV_D_Env %>% select(-8, -10, -12:-16)
+colnames(GOV_D_Env)[9] <- "Bio.Code"
+Comb_GOV_Data <- left_join(GOV_D_Env, GOV_DS, by="Bio.Code")
+
+
+# Convert to wideformat, miscellaneous
+Wide_GOV_Data <- Comb_GOV_Data %>% spread(key = Species, value = Percent) %>% select(-421)
+#key = Column, value = in the table
+#421 column is NA value only
+
+Weir_Data <- Wide_GOV_Data %>% filter(River.Type=="Weir") # Env contains weir location, so need to drop the column
+Wide_GOV_Data <- Wide_GOV_Data %>% filter(River.Type!="Weir") # != for filter obs not containing
+
+a <- Wide_GOV_Data %>% select(12:420)
+a[is.na(a)]<-0
+
+b <- Wide_GOV_Data %>% select(1:11) %>% mutate(Stage = case_when(Year >= 2009 & Year <= 2011 ~ "During",
+                        Year >= 2012 & Year <= 2018 ~ "Post"))
+
+# Remove columns where all values are 0
+a <- a %>% select_if(colSums(.) != 0) #409 columns -> 399
+
+Final_GOV_Data <- cbind(b,a)
+rm(a, b)
+rm(Comb_GOV_Data, GOV_D_Env, GOV_DS, Wide_GOV_Data)
+
+# Factors
+## Half Of Year: Change 1/2 to Spring/Autumn
+Final_GOV_Data$Half.Of.Year <- as.character(Final_GOV_Data$Half.Of.Year)
+Final_GOV_Data$Half.Of.Year <- factor(Final_GOV_Data$Half.Of.Year, levels = c("1", "2"),
+                                      labels = c( "Spring", "Autumn" ))
+
+## Stage
+Final_GOV_Data$Stage <- factor(Final_GOV_Data$Stage, levels = c("During", "Post"))
+
+## New Code Name
+Final_GOV_Data$New.Code.Name <-factor(Final_GOV_Data$New.Code.Name, levels = c(
+  "M1", "M2","M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12", "M13", "M14", "M15", "T1", "T2", "T3a", "T3b", "T4", "T5a", "T5b", "T6a", "T6b", "T7a", "T7b", "T8a", "T8b", "T9a", "T9b", "T10a", "T10b", "T11a", "T11b"))
+
+## River Name
+Final_GOV_Data$River.Name <- factor(Final_GOV_Data$River.Name, levels = c(
+  "ND", "BB", "NS", "YG", "BS", "WE", "GM", "KH", "HO", "HG", "NG", "MR"))
+
+Final_GOV_Data_M <- Final_GOV_Data %>% filter(River.Type=="M")
+Final_GOV_Data_T <- Final_GOV_Data %>% filter(River.Type=="T")
+
+
+#All_MY_D <- read_csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Final_Diatom_List_forAnalysis_datainput.csv")
+```
+
+
+
+## Analysis and Result
+
+1. Determine dimensions
+2. Stree plot
+3. nMDS (performs Nonmetric Multidimensional scaling (metaMDS))
+4. Community Trajectory Analysis (CTA) using nMDS (You can choose different types of multidimensional scaling methods)
+5. Visualise them
+6. Statistical Analysis (figures)
+
+### Data Separation: Species and Env
+```{r}
+#Extract Env from all data (Final Gov Data Set)
+Final_GOV_Env <- Final_GOV_Data %>% select(1:12)
+Final_GOV_Species <- Final_GOV_Data %>% select(-1:-12)
+```
+
+
+### Create a DF with proportion per species
+```{r}
+#What I want to do is that select all columns (Species) where the proportion is greater than 5 %
+
+bind_cols(Species=colnames(Final_GOV_Species), Total=(colSums(Final_GOV_Species)))->species # Column-wise sum
+
+species <- species %>% mutate(Prop=Total/sum(Total)*100)
+
+species %>% filter(Prop>0.5) %>% arrange(Prop)
+
+write.csv(species, "D:/Rmarkdown/Species_prop.csv") # Save as csv
+# This is the list of diatom speices in Data Set with proportion of its species
+# This can be saved and later used for research later.
+
+# However, analysis further down is to show how exclusion of species at certain level of proportion will affect stress value level.
+
+```
+
+
+### Create DFs for dimensions check
+```{r}
+# data: Final_GOV_Species (ignore the others)
+
+a <- colSums(Final_GOV_Species) # Sum of each column
+b <- sum(a) # Sum of sums up of all species (total)
+ab <- a/b*100 # proportion of each species
+
+Cond_1 <- ab > 0.1 #proportion is greater than 0.1% 81 species
+Cond_2 <- ab > 0.5 #proportion is greater than 0.5% 37 species
+Cond_3 <- ab > 1.0 #proportion is greater than 1% 23 species
+
+
+Sel_01 <- Final_GOV_Species[,Cond_1, drop=FALSE] # DF for Cond 1 # 81 species
+Sel_05 <- Final_GOV_Species[,Cond_2, drop=FALSE] # DF for Cond 2 # 37 species
+Sel_1 <- Final_GOV_Species[,Cond_3, drop=FALSE] # DF for Cond 3 # 23 species
+
+
+# Species that are greater than 0.1 with "Other" categories removed.
+Cond_4 <- grepl("(other)", colnames(Sel_01))
+Sel_01_rm_lump <- Sel_01[,!Cond_4, drop=FALSE]  # using ! before condition, the reverse function can be implemented.
+
+# Based on False/True, want to select only columns which are TRUE from original data (Final_GOV_Speices)
+
+```
+
+
+### Check dimension and stress value for eash data set
+```{r}
+dimcheckMDS(Sel_01_rm_lump) # 4d: 77 species (0.1 except lump) 0.4241538 0.2798009 0.2110374 0.1678039 0.1395913 0.1227646
+dimcheckMDS(Sel_01) # 0.1%, 4d : 81 species
+dimcheckMDS(Sel_05) # 0.5%, 4d: 37 species
+dimcheckMDS(Sel_1) # 1%, 3d: 23 species
+
+```
+
+Conclusion
+* With 1% (23 species) extracted from 399 species, stress value drops within a boundary (0.2) at 3 dimensional space
+  * However, 23 species across more than 30 sites aren't enough numbers to effectively show the diversity.
+* With 0.5% (37 species) extracted, stress value falls on a boundary at 3 dimensional space.
+  * Still 37 species across more than 30 sites aren't enough
+* With 0.1% (81 species) extracted, stress value falls within a boundary at 4 dimensional space.
+  * However, it contains 4 lump categories that needs a review.
+  * Sum of species that are greater than 0.1 is 94.56%
+* With 0.1% with 4 lumped removed (77 species), stress value is almost the same as the original data.
+  * Therefore, lumped categories don't affect the shape, and it can be removed as we don't know what exact species they are.
+
+
+### Check Percentage of species selected 
+```{r}
+species %>% filter(Prop>1) %>% summarise(Total=sum(Prop)) #73.5 %
+species %>% filter(Prop>0.5) %>% summarise(Total=sum(Prop)) # 84.1 %
+species %>% filter(Prop>0.1) %>% summarise(Total=sum(Prop)) # 94.5 %
+species %>% filter(Prop>0.1) %>% filter(!grepl("(other)", Species)) %>% summarise(Total=sum(Prop)) # 93.7 %
+```
