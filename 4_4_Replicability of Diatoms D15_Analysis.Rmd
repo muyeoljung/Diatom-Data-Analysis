@@ -1,0 +1,411 @@
+---
+title: "Replicability of Diatoms: Dissimilarity of First 15 Diatom Sampes in the Nakdong River, South Korea"
+author: "Muyeol Jung"
+date: "31/07/2020"
+output:
+  github_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+```
+
+# Introduction
+
+Diatoms have been widely used in water qualty assessment because of their traits of sensitivity to changes in environments and ubiquity in water. Kelly and other researchers have adapted diatom to water quality analysis, however, how replicable diatoms are remain unanswered.
+
+This chapter is to attempt to compare daitom samples taken at the same time from different rock samples and to examine their replicability in random selection. For the research purpose, all 15 rock samples were collected at three major different sites in Nakdong River Dec 2018, encompassing upstream, midstream and downstream.
+
+Methodologically, dissimilarity between samples is calculated and then plotted using non-metric Multidimensional scaling.
+
+
+
+
+# Data Process and Analysis
+
+## Import Dataset and Process
+
+Diatom Counts from 15 rock sample are imported and then processed in an appropriate format of table with observations in rows and species in columns.
+
+```{r echo=T, results='hide'}
+# Import the data set and transpose
+D15.Count <- read.csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Rex/Final_Diatom_List.csv", stringsAsFactors = FALSE) %>% t()
+
+
+# Convert matrix to dataframe
+D15.Count <- data.frame(data.matrix(D15.Count))
+#summary(D15.Count)
+
+# colnames
+D15_colname <- D15.Count[1,]
+D15_colname <- lapply(D15_colname, as.character)
+
+D15.Count <- D15.Count[-1,]
+
+## Convert factors to numeric
+index <- sapply(D15.Count, is.factor)
+D15.Count[index] <- lapply(D15.Count[index], function(x) as.numeric(as.character(x)))
+
+colnames(D15.Count) <- D15_colname
+rm(D15_colname, index)
+
+# Complete: D15.Count
+
+# Create Species list with relative abundance (All)
+
+D15_Spec_abundance <- colSums(D15.Count) %>% data.frame()
+colnames(D15_Spec_abundance)[1] <- "Count"
+D15_Spec_abundance$Species <- rownames(D15_Spec_abundance)
+rownames(D15_Spec_abundance) <- NULL
+D15_Spec_abundance <- D15_Spec_abundance[, c(2,1)]
+D15_Spec_abundance <- D15_Spec_abundance %>% mutate(Percent = Count/sum(Count)*100)
+arrange(D15_Spec_abundance, desc(Percent))
+
+### below also works -------
+
+#D15.Count1 <- read.csv("Final_Diatom_List.csv") %>% t()
+#D15.Count1 <- data.frame(data.matrix(D15.Count1))
+
+#a1 <- D15.Count1[1,]
+#a1 <- lapply(a1, as.character)
+
+#D15.Count1 <- D15.Count1[-1,]
+#colnames(D15.Count1) <- a1
+
+#D15.Count1
+
+#index <- sapply(D15.Count1, is.factor)
+#D15.Count1[index] <- lapply(D15.Count1[index], function(x) as.numeric(as.character(x)))
+
+
+# Convert to Per centage (Cont. from above)
+Site <- rownames(D15.Count) %>% data.frame()
+colnames(Site)[1] <- "Site"
+row.names(D15.Count) <- NULL
+
+D15 <- cbind(Site, D15.Count)
+rm(Site, D15.Count)
+
+# convert to Long format
+Long_D15 <- melt(D15, na.rm=FALSE, id.vars = "Site", variable.name = "Species", value.name = "Count")
+Long_D15 <- Long_D15 %>% group_by(Site) %>% 
+  mutate(Percent= Count/sum(Count, na.rm = TRUE)*100)
+
+# Check the sum
+Long_D15 %>% group_by(Site) %>% summarise(Total = sum(Percent, na.rm = TRUE))
+
+# Convert back to Wide format
+Wide_D15 <- Long_D15 %>% select(-3) %>% dcast(Site~Species)
+
+rm(D15, Long_D15)
+
+# Complete: Final data -> Wide_D15
+```
+
+
+
+## Import Environment Dataset for the sampling data
+
+Environmental data for the diatom results are also loaded.
+The data includes Name, Site(Group), and Date and Site will be used here as grouping factor.
+
+Site; A upstream, B midstream, C downstream
+
+```{r echo=T, results='hide'}
+# Import Environment dataset
+D15_env <- read.csv("https://raw.githubusercontent.com/muyeoljung/Diatom-Data-Analysis/master/Diatom_Data/Diatom15_Env.csv")
+
+# Combine it with the precessed D15 Dataset
+D15 <- inner_join(Wide_D15, D15_env, by="Site")
+rm(D15_env, Wide_D15)
+
+# Re-order columns
+D15 <- D15[,c(1,237:240, 2:236)] 
+
+# For analysis, Env and Species are split seperately
+D15_Species <- D15 %>% select(6:240)
+D15_Env <- D15 %>% select(1:5)
+
+# Save D15 file as separate csv file for future use 
+# write.csv(D15, "D:/Rmarkdown/D15_Data.csv")
+```
+
+
+
+
+# Results
+
+1. nMDS Analysis: collapse data into low dimensional spaces
+- Check dimension
+- Create ordination and check Stress plot
+- Draw plot
+
+2. Post hoc Analysis: Analysis of Similiarities (ANOSIM)
+- Calculate distance (Bray)
+- Within and among group distances
+
+## nMDS analysis
+```{r}
+# dimension check for nMDS
+goeveg::dimcheckMDS(D15_Species) # goeveg package
+# Solution reached, stress value 0.051629323 at 2 dimension
+
+# Create ordination based on the selected dimensions
+D15_Ordination <- metaMDS(D15_Species, distance = "bray", k=2)
+stressplot(D15_Ordination) # Stress plot for it
+# Non-meteric fit R2 = 0.997, Linear fit R2 = 0.989
+
+
+plot(D15_Ordination)
+
+#D15.ordination <- metaMDS(D15.Count, distance = "bray", k=2)
+#plot(D15.ordination, type="t", display = "sites")
+#with(D15.env, ordihull(D15.ordination, Site))
+```
+
+
+```{r}
+# Extract nMDS results for visualisation
+## nMDS Point (Site): nMDS_point_D15
+D15_nMDS_point <- scores(D15_Ordination, display = "sites", shrink = FALSE, choices = c(1,2)) %>% data.frame()
+nMDS_point_D15 <- cbind(D15_nMDS_point, D15_Env) # Combine with Env for visualisation
+rm(D15_nMDS_point)
+
+## D15 Species
+D15_nMDS_species <- scores(D15_Ordination, display = "species", shrink = FALSE, choices = c(1, 2)) %>%
+  data.frame() %>% drop_na()
+# Make Species column in df
+D15_nMDS_species$Species <- rownames(D15_nMDS_species)
+rownames(D15_nMDS_species) <- NULL
+
+### combine species point with abundance data 
+nMDS_Species_abun_D15 <- inner_join(D15_nMDS_species, D15_Spec_abundance, by="Species")
+rm(D15_nMDS_species, D15_Spec_abundance)
+
+# Final complete df; nMDS_point_D15 and nMDS_Species_abun_D15
+
+
+# Create Plots #
+
+# Plot nMDS Site location with 95% confidence ellipse
+Plot_D15_nMDS_Site <- 
+ggplot(nMDS_point_D15, aes(x=NMDS1, y=NMDS2, colour=Group, label=Number))+
+  geom_point(size=3)+
+  geom_text(size=4, color="black", hjust=0, vjust=0)+
+  geom_vline(xintercept = 0, linetype="dotted")+
+  geom_hline(yintercept = 0, linetype="dotted")+
+  #xlim(-0.75, 0.5)+
+  theme_bw()+
+  stat_ellipse(geom = "path", type = "t", level = 0.95)+
+  theme(legend.position = c(0.1, 0.2),
+        legend.background = element_rect(size=0.5, linetype="solid"))
+
+# type: euclid: draws a circle with the radius equal to level
+# segment: the number of edges in ellipse
+ggsave("Plot_D15_nMDS_Site.png", type="cairo", dpi = 500, height = 10, units = "cm")
+
+
+# Plot nMDS species (all species)
+Plot_D15_nMDS_Spe <-
+ggplot(nMDS_Species_abun_D15, aes(x=NMDS1, y=NMDS2, label=nMDS_Species_abun_D15$Species))+
+  geom_point(size=1.5, shape = 3, color="red")+
+  geom_text(size=1, color="black", hjust=0.5, vjust=0.5, angle=45)+
+  geom_vline(xintercept = 0, linetype="dotted")+
+  geom_hline(yintercept = 0, linetype="dotted")+
+  theme_bw()
+ggsave("Plot_D15_nMDS_Spe.png", type="cairo", dpi = 500, height = 10, units = "cm")
+
+# Plot nMDS species (excluding low abundant ones)
+Plot_D15_nMDS_Spe_High <-
+ggplot(data=subset(nMDS_Species_abun_D15, Percent>=0.5), 
+       aes(x=NMDS1, y=NMDS2, label=Species))+
+  geom_point(size=1.5, shape = 3, color="red")+
+  geom_text(size=1, color="black", hjust=0.5, vjust=0.5, angle=45)+
+  geom_vline(xintercept = 0, linetype="dotted")+
+  geom_hline(yintercept = 0, linetype="dotted")+
+  theme_bw()
+ggsave("Plot_D15_nMDS_Spe_High.png", type="cairo", dpi = 500, height = 10, units = "cm")
+
+
+# Merge two plots above; Site + Species
+Plot_D15_Site_SpeH <- ggpubr::ggarrange(Plot_D15_nMDS_Site, Plot_D15_nMDS_Spe_High) #,legend = "bottom")
+ggsave("Plot_D15_Site_SpeH.png", type="cairo", dpi = 500, height = 10, units = "cm")
+
+
+
+# Plot two dataset in one graph; nMDS_point_D15 and nMDS_Species_abun_D15
+# Set a condition first
+Percent_1 <- nMDS_Species_abun_D15$Percent>=1
+
+
+# Next, plot
+Plot_D15_Allone <-
+  ggplot()+
+  geom_point(data=nMDS_point_D15, aes(x=NMDS1, y=NMDS2, colour=Group, label=Number), size=4)+
+  geom_text(data=nMDS_point_D15, aes(x=NMDS1, y=NMDS2, label=Number), size=3, color="black", hjust=0.5, vjust=0.5)+
+  geom_point(data=nMDS_Species_abun_D15,
+             aes(x=NMDS1, y=NMDS2, shape=Percent_1), color="grey50", size=2)+
+  scale_shape_manual(values = c(3,20), name = "Species", label= c("<1% (N=160)", ">=1% (N=31)"))+
+  #N check!!! 31/191)
+  ggrepel::geom_text_repel(data = subset(nMDS_Species_abun_D15, Percent>=1),
+                           aes(x=NMDS1, y=NMDS2, label=Species),
+                           size=3, segment.size = 0.2, force = 1, max.iter = 3000)+
+  geom_hline(yintercept = 0, linetype=2, color="black")+
+  geom_vline(xintercept = 0, linetype=2, color="black")+
+  theme_bw()+
+  theme(legend.position = "bottom")+
+  scale_colour_discrete(name = "Site")
+#+annotate("text", x=-.75, y=-1.0, label= "N of Species >= 1%  = 31/191", size=3)
+#  theme(legend.position = c(0.1, 0.2),
+#       legend.background = element_rect(size=0.5, linetype="solid"))
+
+ggsave("Plot_D15_Allone.png", type="cairo", dpi = 500, width = 20, units = "cm")
+ 
+# Seperately, it works, but combined, then scaleshape manual don't work
+
+Subset_spec_05 <- subset(nMDS_Species_abun_D15, Percent>=0.5) # 46 Species
+Subset_spec_1 <- subset(nMDS_Species_abun_D15, Percent>=1) # 31 Species
+
+```
+
+
+## Analysis of Similarities(ANOSIM)
+
+1. Calculate distance
+2. Compare it through ANOSIM
+
+
+
+Calculate dissimilarities: vegdist (Dissimilarity Indicies for Community Ecologists)
+
+Command "Vegdist" will calculate distances (dissimilarity) between observations (samples).
+The Bray-Curtis distance is used as the Bray-Curtis dissimilarity is one of the most well-known ways of quantifying the difference between samples. (It does not satisfy the triangle inequality axiom, and hence is not a true distance)
+
+Bray-Curtis distance is calculated as follows.
+
+$$d_{j,k}= \sqrt{\frac{\sum _i|x_ij-x_ik|}{\sum _i(x_ij+x_ik)} }$$
+where $x_ij$, $x_ik$ refer to the quantity on species (column) $i$ and site (rows) $j$ and $k$.
+
+Bray-Curtis distance scale (multiply 100) is easy to understand (0 means the samples are exactly the same, while 100 is the maximum difference that can be observed between two samples).
+
+Here, dissimilarities are calculated on raw counts (not relative abundance).
+
+```{r}
+# Calculate distance
+
+# columns where all values are 0 don't affect distance at all
+D15_Dist <- vegdist(D15_Species, method = "bray")
+```
+
+
+ANOSIM provides a way to test statistically whether there is a significant difference between two or more groups of sampling units. It operates directly on a dissimilarity matrix. (uses only the rank order of dissimilarity values)
+
+```{r}
+# ANOSIM analysis
+D15_Dist_Anosim <- with(D15_Env, anosim(D15_Dist, Group)) 
+
+summary(D15_Dist_Anosim)
+plot(D15_Dist_Anosim)
+
+
+# Anosim: 1. calcuate a matrix of dissimiliarities scores for every pair of sites
+# 2. convert the dissimiliarities to ranks
+# 3. calculate the R statistic as the ratio between dissimilarities between sites within a group (e.g. high grazing pressure) and the dissimilarities between sites that are in different groups. The closer this value is to 1, the more the sites within a group are similar to each other and dissimilar to sites in other groups.
+# 4. The significance of the R-statistic is determined by permuting the membership of sites in groups.
+# The closer to 1, the more similar to each other within the group and the more dissimilar to sites in other groups
+
+
+#
+# When you print the result of ANOSIM  (I am assuming here that you used vegan)
+# you get 
+# 1) the global R value (the test statistics for ANOSIM) followed by the p-value 
+# 2) The type of permutation done and the number of permutation 
+# 3) distribution of the test statistic (R) obtained under the null hypothesis. This can equally be shown graphically as histograms. But in vegan you get numerical summaries of R as quantiles 
+# 4) finally you get summary of the between group and within group rank dissimilarities.
+
+# Here too you get the distributional summaries of A) the between group rank dissimilarities  from the minimum (0%) to the maximum (100%) B) the within group rank dissimilarity from the minimum (0%) to the maximum (100%) C) the number of observation (replicates) "N".
+
+
+
+# Extract Anosim data from the result (D15_Dist_Anosim) for a better visualisation
+a <- D15_Dist_Anosim$dis.rank %>% data.frame()
+b <- D15_Dist_Anosim$class.vec %>% data.frame()
+
+colnames(a)[1] <- "Dis.rank"
+colnames(b)[1] <- "Class"
+
+D15_Anosim_t <- cbind(b, a)
+
+ggplot(D15_Anosim_t, aes(x=Class, y=Dis.rank))+geom_boxplot(outlier.colour="black", outlier.shape=16,
+             outlier.size=2, notch=TRUE)+
+  theme_bw()+xlab("Group")+ylab("Dissimilarity rank") 
+                                                                                 
+ggsave("D15_Anosim.png", type="cairo", dpi = 500, height = 10, units = "cm")
+
+# This needs understanding, generally the mean of this plot: about dissimilarity rank
+ggplot(D15_Anosim_t, aes(x=Class, y=Dis.rank))+geom_dotplot(binaxis='y', stackdir='center', dotsize=1)+
+  theme_bw()+xlab("Group")+ylab("Dissimilarity rank") 
+
+# Notch explained
+# http://www.sthda.com/english/wiki/ggplot2-box-plot-quick-start-guide-r-software-and-data-visualization
+
+
+
+D15.anosim <- with(D15.env, anosim(D15.Count.dist, Site))
+summary(D15.anosim)
+plot(D15.anosim)
+
+```
+
+
+
+
+## MRPP: Multi Response Permutation Procedure and Mean Dissimilarity Matrix
+
+mrpp for a similar function using original dissimiliarities instead of their ranks.
+
+```{r pressure, echo=FALSE}
+D15_Dist_Mrpp <- with(D15_Env, mrpp(D15_Species, distance = "bray", Group))
+D15_Dist_Mrpp
+
+D15_Dist_Mrpp_E <- with(D15_Env, mrpp(D15_Species, distance = "euclidean", Group))
+D15_Dist_Mrpp_E
+
+# Mean Distance within/between groups
+D15_Dist_Mean_dis <- with(D15_Env, meandist(D15_Dist, Group))
+D15_Dist_Mean_dis
+
+# Summary finds the within-class, between class and overall means of these dissimiliarities
+summary(D15_Dist_Mean_dis)
+plot(D15_Dist_Mean_dis)
+
+
+
+#D15.mrpp <- with(D15.env, mrpp(D15.Count, distance = "bray", Site))
+#D15.mrpp
+
+#D15.mrpp_E <- with(D15.env, mrpp(D15.Count, distance = "euclidean", Site))
+#D15.mrpp_E
+
+## mean distance within/between groups
+#D15.meandis <- with(D15.env, meandist(D15.Count.dist, Site))
+#D15.meandis
+
+# summary finds the within-class, between-class and overall means of these dissimilarities.
+#summary(D15.meandis)
+#plot(D15.meandis)
+```
+
+
+### Conclusion
+
+On Bray-Curtis dissimilarities, fives samples at each site are clustered, whereas far away from samples from other sites.
+
+Samples at site C are more closely clustered followed by site A, site B is the least clustered.
